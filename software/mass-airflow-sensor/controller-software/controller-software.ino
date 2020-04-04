@@ -16,7 +16,7 @@ uint8_t g_nDeviceAddress = 64;
 /* Define 'DEBUG' in order to get additional output via the serial console;
  * undefine for speed-up and potential higher rates
  */
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
@@ -33,6 +33,7 @@ uint8_t g_nDeviceAddress = 64;
  * Caution: The interrupt overhead is not subtracted automatically.
  */
 #define SENSOR_QUERY_INTERVAL (10u)
+#define SAMPLES_PER_SECOND    (1000u / SENSOR_QUERY_INTERVAL)
 #ifdef DEBUG
     #define SENSOR_LOOP_DELAY (SENSOR_QUERY_INTERVAL - (1u))
 #else
@@ -42,7 +43,9 @@ uint8_t g_nDeviceAddress = 64;
 /* typedef return values of the sensor API */
 enum eRetVal { SENSOR_SUCCESS = 0, SENSOR_FAIL, SENSOR_CRC_ERROR, SENSOR_CMD_ERROR, SENSOR_RXCNT_ERROR, SENSOR_PARAM_ERROR };
 
-eRetVal readMeasurement(float* pfFlow, int16_t* pnRaw, bool bSendMeasCmd);
+enum eBreathCyclePhase { BREATH_UNKNOWN, BREATH_INSPIRATION, BREATH_EXPIRATION };
+
+eRetVal readMeasurement(float* pfFlow, uint16_t* pnRaw, bool bSendMeasCmd);
 eRetVal readSerialNumber(int32_t* pnSerialNo);
 float filter(float fIn);
 
@@ -114,6 +117,12 @@ void loop()
     static bool bSendMeasCommand = true;
     static float fFlow = 0.0f;
     static float fFlowFiltered = 0.0f;
+    static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
+    static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
+    static uint32_t nPhaseCounter = 0;
+    static float fAccu = 0.0f;
+    static float fPhaseDuration = 0.0f;
+    
 #ifdef DEBUG
     static uint16_t nRaw = 0;
 #endif
@@ -133,6 +142,42 @@ void loop()
         case SENSOR_SUCCESS:
             fFlowFiltered = filter(fFlow);
 
+            if( fFlowFiltered >= 1.0f )
+            {
+                ePhase = BREATH_INSPIRATION;
+            }
+            else if( fFlowFiltered <= -1.0f )
+            {
+                ePhase = BREATH_EXPIRATION;
+            }
+
+            if( ePhaseOld != ePhase )
+            {
+                fPhaseDuration = (float)nPhaseCounter/SAMPLES_PER_SECOND;
+                fAccu = fabs(fAccu);
+                if( BREATH_INSPIRATION == ePhaseOld )
+                {
+                    Serial.print("Stopped inspiration after ");
+                    Serial.print( fPhaseDuration );
+                    Serial.print(" seconds with an accumulated volume of ");
+                    Serial.print( fAccu );
+                    Serial.println(" liters.");
+                }
+                else if( BREATH_EXPIRATION == ePhaseOld )
+                {
+                    Serial.print("Stopped expiration after ");
+                    Serial.print( fPhaseDuration );
+                    Serial.print(" seconds with an accumulated volume of ");
+                    Serial.print( fAccu );
+                    Serial.println(" liters.");
+                }
+                nPhaseCounter = 0;
+                fAccu = 0.0f;
+            }
+            ePhaseOld = ePhase;
+            nPhaseCounter++;
+            fAccu += ( fFlowFiltered / (60.0f * SAMPLES_PER_SECOND) );
+
             /*
             debugPrint("Raw: ");
             debugPrint( nRaw );
@@ -145,7 +190,10 @@ void loop()
             */
             debugPrint("Filtered: ");
             debugPrint( fFlowFiltered );
-            debugPrintln(" [slm]");
+            debugPrint(" [slm]");
+            debugPrint(", Phase: ");
+            debugPrint( ePhase * 10 );
+            debugPrintln("");
     
             bSendMeasCommand = false; /* do not resend measurement command after first success */
             break;
@@ -226,7 +274,7 @@ eRetVal convertToFlow(uint16_t* pnVal, float* pfFlow)
     return SENSOR_SUCCESS;
 }
 
-eRetVal readMeasurementValue(int16_t* pnVal)
+eRetVal readMeasurementValue(uint16_t* pnVal)
 {
     static char sHexBuf[12]; /* string buffer for debug output via UART */
     static uint8_t nMeasRx[3];
