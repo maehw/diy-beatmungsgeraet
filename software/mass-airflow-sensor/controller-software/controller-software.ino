@@ -44,6 +44,39 @@ enum eRetVal { SENSOR_SUCCESS = 0, SENSOR_FAIL, SENSOR_CRC_ERROR, SENSOR_CMD_ERR
 
 eRetVal readMeasurement(float* pfFlow, int16_t* pnRaw, bool bSendMeasCmd);
 eRetVal readSerialNumber(int32_t* pnSerialNo);
+float filter(float fIn);
+
+/*
+FIR filter designed with
+http://t-filter.appspot.com
+
+sampling frequency: 100 Hz
+
+* 0 Hz - 8 Hz
+  gain = 1
+  desired ripple = 5 dB
+  actual ripple = 1.3331774107336987 dB
+
+* 30 Hz - 50 Hz
+  gain = 0
+  desired attenuation = -20 dB
+  actual attenuation = -29.769303038277595 dB
+
+*/
+
+#define FILTER_TAP_NUM 5
+
+/* FIR filter coefficients */
+const float g_fFilterCoeff[FILTER_TAP_NUM] = {
+    0.09297173361096804,
+    0.2703344310432933,
+    0.3499812215322376,
+    0.2703344310432933,
+    0.09297173361096804
+};
+
+/* Filter delay line */
+float g_fFilterInput[FILTER_TAP_NUM];
 
 void setup()
 {
@@ -58,6 +91,8 @@ void setup()
 #ifdef RT_SUPERVISION_PIN
     pinMode(RT_SUPERVISION_PIN, OUTPUT);
 #endif
+
+    resetFilter();
 
     debugPrintln("Finished setup.");
 
@@ -75,9 +110,10 @@ void setup()
 
 void loop()
 {
+    static eRetVal eStatus = SENSOR_FAIL;
     static bool bSendMeasCommand = true;
     static float fFlow = 0.0f;
-    static eRetVal eStatus = SENSOR_FAIL;
+    static float fFlowFiltered = 0.0f;
 #ifdef DEBUG
     static uint16_t nRaw = 0;
 #endif
@@ -95,13 +131,20 @@ void loop()
     switch( eStatus )
     {
         case SENSOR_SUCCESS:
+            fFlowFiltered = filter(fFlow);
+
             /*
             debugPrint("Raw: ");
             debugPrint( nRaw );
             debugPrint(", ");
             */
+            /*
             debugPrint("Flow: ");
             debugPrint( fFlow );
+            debugPrint(" [slm]");
+            */
+            debugPrint("Filtered: ");
+            debugPrint( fFlowFiltered );
             debugPrintln(" [slm]");
     
             bSendMeasCommand = false; /* do not resend measurement command after first success */
@@ -286,3 +329,29 @@ eRetVal readSerialNumberValue(int32_t* pnSerialNo)
     return SENSOR_SUCCESS;
 }
 
+void resetFilter()
+{
+    for(uint8_t i=0; i < FILTER_TAP_NUM; i++)
+    {
+        g_fFilterInput[i] = 0.0f;
+    }
+}
+
+float filter(float fIn)
+{
+    float fOut = 0.0f;
+
+    for(uint8_t i = FILTER_TAP_NUM-1; i > 0; i--)
+    {
+        g_fFilterInput[i] = g_fFilterInput[i-1]; 
+    }
+    g_fFilterInput[0] = fIn;
+
+    /* filter kernel: multiply accumulate */
+    for(uint8_t i = 0; i < FILTER_TAP_NUM; i++)
+    {
+        fOut += (g_fFilterCoeff[i] * g_fFilterInput[i]);
+    }
+
+    return fOut;
+}
