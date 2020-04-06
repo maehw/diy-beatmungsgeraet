@@ -49,7 +49,7 @@ enum eSensorMode { SENSOR_MODE_NONE = 0, SENSOR_MODE_MEASURE, SENSOR_MODE_SERIAL
 /* define the address of the sensor on the I2C bus;
  * TODO/FIXME: decide address to be used via GPIO input pin during setup()
  */
-uint8_t g_nDeviceAddress = 64;
+uint8_t g_nDeviceAddress = 0x42;
 
 /* Initialize global variables */
 //volatile int g_nConversionValue = 0; /* digital value for sensor's analog input */

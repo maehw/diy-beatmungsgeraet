@@ -145,11 +145,16 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readSerialNumberValue(int32_t* pnS
     debugPrint("Raw serial number data: ");
     while( Wire.available() ) // slave may send less than requested
     {
-        ++nReceived;
-
         uint8_t cRxByte = Wire.read(); // receive a byte as character
         // TODO: do something with the serial number here!
         //       i.e. prepare 32 bit return value and check CRC
+
+        if( (nReceived >= 0 && nReceived <= 1) || (nReceived >= 3 && nReceived <= 4) )
+        {
+            nSerialNo = nSerialNo << 8;
+            nSerialNo |= cRxByte;
+        }
+        ++nReceived;
 
         /* print every byte as two hex digits with prefix '0x', NULL-terminate the string */
         sprintf(sHexBuf, "0x%02X ", cRxByte);

@@ -77,8 +77,8 @@ float g_fFilterInput[FILTER_TAP_NUM];
 
 
 /* define sensor instances with their addresses on the I2C bus */
-MassAirflowSensor g_sensor1(64);
-
+MassAirflowSensor g_sensor1(0x40);
+MassAirflowSensor g_sensor2(0x42);
 
 void setup()
 {
@@ -100,30 +100,47 @@ void setup()
 
     if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor1.readSerialNumber(&nSensorSerialNo) )
     {
-        debugPrint("Read serial number: ");
+        debugPrint("Read serial number of sensor 1: ");
         debugPrint(nSensorSerialNo, HEX);
         debugPrintln("");
     }
     else
     {
-        debugPrintln("Failed to read serial number.");
+        debugPrintln("[ERROR] Failed to read serial number of sensor 1.");
+        for(;;);
+    }
+
+    if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor2.readSerialNumber(&nSensorSerialNo) )
+    {
+        debugPrint("Read serial number of sensor 2: ");
+        debugPrint(nSensorSerialNo, HEX);
+        debugPrintln("");
+    }
+    else
+    {
+        debugPrintln("[ERROR] Failed to read serial number of sensor 2.");
+        for(;;);
     }
 }
 
 void loop()
 {
-    static MassAirflowSensor::eRetVal eStatus = MassAirflowSensor::SENSOR_FAIL;
-    static bool bSendMeasCommand = true;
-    static float fFlow = 0.0f;
-    static float fFlowFiltered = 0.0f;
-    static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
-    static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
-    static uint32_t nPhaseCounter = 0;
-    static float fAccu = 0.0f;
-    static float fPhaseDuration = 0.0f;
+    static MassAirflowSensor::eRetVal eStatus1 = MassAirflowSensor::SENSOR_FAIL;
+    static MassAirflowSensor::eRetVal eStatus2 = MassAirflowSensor::SENSOR_FAIL;
+    static bool bSendMeasCommand1 = true;
+    static bool bSendMeasCommand2 = true;
+    static float fFlow1 = 0.0f;
+    static float fFlow2 = 0.0f;
+//    static float fFlowFiltered = 0.0f;
+//    static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
+//    static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
+//    static uint32_t nPhaseCounter = 0;
+//    static float fAccu = 0.0f;
+//    static float fPhaseDuration = 0.0f;
     
 #ifdef DEBUG
-    static uint16_t nRaw = 0;
+    static uint16_t nRaw1 = 0;
+    static uint16_t nRaw2 = 0;
 #endif
 
 #ifdef RT_SUPERVISION_PIN
@@ -131,81 +148,108 @@ void loop()
 #endif
 
 #ifdef DEBUG
-    eStatus = g_sensor1.readMeasurement(&fFlow, &nRaw, bSendMeasCommand);
+    eStatus1 = g_sensor1.readMeasurement(&fFlow1, &nRaw1, bSendMeasCommand1);
+    eStatus2 = g_sensor2.readMeasurement(&fFlow2, &nRaw2, bSendMeasCommand2);
 #else
-    eStatus = g_sensor1.readMeasurement(&fFlow, NULL, bSendMeasCommand);
+    eStatus1 = g_sensor1.readMeasurement(&fFlow1, NULL, bSendMeasCommand1);
+    eStatus2 = g_sensor2.readMeasurement(&fFlow2, NULL, bSendMeasCommand2);
 #endif
 
-    switch( eStatus )
+    if( MassAirflowSensor::SENSOR_SUCCESS == eStatus1 )
     {
-        case MassAirflowSensor::SENSOR_SUCCESS:
-            fFlowFiltered = filter(fFlow);
-
-            if( fFlowFiltered >= 1.0f )
-            {
-                ePhase = BREATH_INSPIRATION;
-            }
-            else if( fFlowFiltered <= -1.0f )
-            {
-                ePhase = BREATH_EXPIRATION;
-            }
-
-            if( ePhaseOld != ePhase )
-            {
-                fPhaseDuration = (float)nPhaseCounter/SAMPLES_PER_SECOND;
-                fAccu = fabs(fAccu);
-                if( BREATH_INSPIRATION == ePhaseOld )
-                {
-                    Serial.print("Stopped inspiration after ");
-                    Serial.print( fPhaseDuration );
-                    Serial.print(" seconds with an accumulated volume of ");
-                    Serial.print( fAccu );
-                    Serial.println(" liters.");
-                }
-                else if( BREATH_EXPIRATION == ePhaseOld )
-                {
-                    Serial.print("Stopped expiration after ");
-                    Serial.print( fPhaseDuration );
-                    Serial.print(" seconds with an accumulated volume of ");
-                    Serial.print( fAccu );
-                    Serial.println(" liters.");
-                }
-                nPhaseCounter = 0;
-                fAccu = 0.0f;
-            }
-            ePhaseOld = ePhase;
-            nPhaseCounter++;
-            fAccu += ( fFlowFiltered / (60.0f * SAMPLES_PER_SECOND) );
-
-            /*
-            debugPrint("Raw: ");
-            debugPrint( nRaw );
-            debugPrint(", ");
-            */
-            /*
-            debugPrint("Flow: ");
-            debugPrint( fFlow );
-            debugPrint(" [slm]");
-            */
-            debugPrint("Filtered: ");
-            debugPrint( fFlowFiltered );
-            debugPrint(" [slm]");
-            debugPrint(", Phase: ");
-            debugPrint( ePhase * 10 );
-            debugPrintln("");
-    
-            bSendMeasCommand = false; /* do not resend measurement command after first success */
-            break;
-        case MassAirflowSensor::SENSOR_RXCNT_ERROR:
-            debugPrintln("[ERROR] Receive count error.");
-            break;
-        case MassAirflowSensor::SENSOR_CRC_ERROR:
-            debugPrintln("[ERROR] CRC error.");
-            break;
-        default:
-            debugPrintln("[ERROR] Measurement error.");
-            break;
+        debugPrint("[*]");
+        bSendMeasCommand1 = false; /* do not resend measurement command after first success */
     }
+    else
+    {
+        debugPrint("[ ]");
+    }
+
+    if( MassAirflowSensor::SENSOR_SUCCESS == eStatus2 )
+    {
+        debugPrint("[*]");
+        bSendMeasCommand2 = false; /* do not resend measurement command after first success */
+    }
+    else
+    {
+        debugPrint("[ ]");
+    }
+
+    debugPrint(" Flow1: ");
+    debugPrint( fFlow1 );
+    debugPrint(", Flow2: ");
+    debugPrintln( fFlow2 );
+
+//    switch( eStatus )
+//    {
+//        case MassAirflowSensor::SENSOR_SUCCESS:
+//            fFlowFiltered = filter(fFlow);
+//
+//            if( fFlowFiltered >= 1.0f )
+//            {
+//                ePhase = BREATH_INSPIRATION;
+//            }
+//            else if( fFlowFiltered <= -1.0f )
+//            {
+//                ePhase = BREATH_EXPIRATION;
+//            }
+//
+//            if( ePhaseOld != ePhase )
+//            {
+//                fPhaseDuration = (float)nPhaseCounter/SAMPLES_PER_SECOND;
+//                fAccu = fabs(fAccu);
+//                if( BREATH_INSPIRATION == ePhaseOld )
+//                {
+//                    Serial.print("Stopped inspiration after ");
+//                    Serial.print( fPhaseDuration );
+//                    Serial.print(" seconds with an accumulated volume of ");
+//                    Serial.print( fAccu );
+//                    Serial.println(" liters.");
+//                }
+//                else if( BREATH_EXPIRATION == ePhaseOld )
+//                {
+//                    Serial.print("Stopped expiration after ");
+//                    Serial.print( fPhaseDuration );
+//                    Serial.print(" seconds with an accumulated volume of ");
+//                    Serial.print( fAccu );
+//                    Serial.println(" liters.");
+//                }
+//                nPhaseCounter = 0;
+//                fAccu = 0.0f;
+//            }
+//            ePhaseOld = ePhase;
+//            nPhaseCounter++;
+//            fAccu += ( fFlowFiltered / (60.0f * SAMPLES_PER_SECOND) );
+//
+//            /*
+//            debugPrint("Raw: ");
+//            debugPrint( nRaw );
+//            debugPrint(", ");
+//            */
+//            /*
+//            debugPrint("Flow: ");
+//            debugPrint( fFlow );
+//            debugPrint(" [slm]");
+//            */
+//            debugPrint("Filtered: ");
+//            debugPrint( fFlowFiltered );
+//            debugPrint(" [slm]");
+//            debugPrint(", Phase: ");
+//            debugPrint( ePhase * 10 );
+//            debugPrintln("");
+//    
+//            bSendMeasCommand = false; /* do not resend measurement command after first success */
+//            break;
+//        case MassAirflowSensor::SENSOR_RXCNT_ERROR:
+//            debugPrintln("[ERROR] Receive count error.");
+//            break;
+//        case MassAirflowSensor::SENSOR_CRC_ERROR:
+//            debugPrintln("[ERROR] CRC error.");
+//            break;
+//        default:
+//            debugPrintln("[ERROR] Measurement error.");
+//            break;
+//    }
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, LOW);
