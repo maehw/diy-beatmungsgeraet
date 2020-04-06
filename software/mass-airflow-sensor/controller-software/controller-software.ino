@@ -131,6 +131,7 @@ void loop()
     static bool bSendMeasCommand2 = true;
     static float fFlow1 = 0.0f;
     static float fFlow2 = 0.0f;
+    static float fRatio = 0.0f;
 //    static float fFlowFiltered = 0.0f;
 //    static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
 //    static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
@@ -175,10 +176,15 @@ void loop()
         debugPrint("[ ]");
     }
 
+    fRatio = (fFlow2 != 0.0f ) ? fFlow1/fFlow2 : 0.0f;
+
     debugPrint(" Flow1: ");
     debugPrint( fFlow1 );
     debugPrint(", Flow2: ");
-    debugPrintln( fFlow2 );
+    debugPrint( fFlow2 );
+    debugPrint(", Ratio: ");
+    debugPrintln( fRatio );
+    
 
 //    switch( eStatus )
 //    {

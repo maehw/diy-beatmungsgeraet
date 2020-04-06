@@ -55,7 +55,7 @@ uint8_t g_nDeviceAddress = 0x42;
 //volatile int g_nConversionValue = 0; /* digital value for sensor's analog input */
 volatile eSensorMode g_eMode = SENSOR_MODE_NONE; /* sensor mode start with 'NONE' */
 
-volatile int16_t g_nDiffPressure = 0;
+volatile uint16_t g_nTxWord = 0;
 
 void setup()
 {
@@ -82,6 +82,9 @@ void setup()
 void loop()
 {
     static int nConversionValue = 0;
+    static float fPressure = 0.0f;
+    static float fVolumeFlow = -40.0f;
+    static uint16_t nTxWord = 0;
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, HIGH);
@@ -98,24 +101,32 @@ void loop()
         debugPrint("[ ] "); /* not in measuring mode */
     }
 
-    // Debug output the sensor's reading (conversion valie)
-    debugPrint("Sensor value: ");
+//    // Debug output the sensor's reading (conversion valie)
+//    debugPrint("Sensor value: ");
+//
+//    debugPrint(nConversionValue); // raw reading
+//    debugPrint(" counts, ");
+//
+//    debugPrint( countsToMillivolts(nConversionValue) );
+//    debugPrint(" mV, ");
+//
+//    fPressure = millivoltsToPressure( countsToMillivolts( nConversionValue ) );
+//    debugPrint( fPressure );
+//    debugPrint(" mmWater, ");
 
-    debugPrint(nConversionValue); // raw reading
-    debugPrint(" counts, ");
+    //fVolumeFlow = pressureToVolumeFlow( fPressure );
+    fVolumeFlow = fVolumeFlow + 1.0f;
+    if( fVolumeFlow > 40.0f )
+    {
+        fVolumeFlow = -40.0f;
+    }
 
-    debugPrint( countsToMillivolts(nConversionValue) );
-    debugPrint(" mV, ");
+    debugPrint( fVolumeFlow );
+    debugPrint(" flow, ");
 
-    float fPressure = millivoltsToMillimetersWater( countsToMillivolts( nConversionValue ) );
-    debugPrint( fPressure );
-    debugPrint(" mmH2O, ");
-
-    g_nDiffPressure = ((int16_t)fPressure) << 2; /* the two least-significant bits are always zero */
-    debugPrint( g_nDiffPressure );
-    debugPrintln(" mmH2O*4");
-
-    /* TODO/FIXME: add conversion from difference pressure to volume flow */
+    g_nTxWord = volumeFlowToTxWord( fVolumeFlow );
+    debugPrint( g_nTxWord );
+    debugPrintln(" tx");
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, LOW);
@@ -231,8 +242,8 @@ void transmitRequestEvent(void)
             char sMeas[2];
             //sMeas[0] = 'F';
             //sMeas[1] = 'L';
-            sMeas[0] = (uint8_t)( (g_nDiffPressure & 0xFF00) >> 8 );
-            sMeas[1] = (uint8_t)(g_nDiffPressure & 0xFF);
+            sMeas[0] = (uint8_t)( (g_nTxWord & 0xFF00) >> 8 );
+            sMeas[1] = (uint8_t)(g_nTxWord & 0xFF);
             Wire.write((char)sMeas[0]);
             Wire.write((char)sMeas[1]);
             Wire.write((char)calcCrc(&sMeas[0], 2) );
@@ -270,19 +281,41 @@ float countsToMillivolts(int nCounts)
     return nCounts * 4.882813f;
 }
 
-float millivoltsToMillimetersWater(float fMillivolts)
+float millivoltsToPressure(float fMillivolts)
 {
+    // based on MP3V5004G datasheet:
     // for now, assume a linear transfer function of the sensor,
     // e.g. V_out = 0.6 V/kPa * dP + 0.6 V
     //         dP = (V_out - 0.6 V) / 0.6 V/kPa 
     //            = (V_out - 0.6 V) * 1.667 kPa/V
     //            = (V_out - 600 mV) * (1.667*100 mmH2O) / 1000 mV // 1 kPa ~ approx. 100 mmH2O
+//
+//    float fPressure = (fMillivolts - 600.0f) * 0.1666666667f;
 
-    float fPressure = (fMillivolts - 600.0f) * 0.1666666667f;
+    // based on MPXV5004G datasheet:
+    // for now, assume a linear transfer function of the sensor,
+    // e.g. V_out = 1.0 V/kPa * dP + 1.0 V
+    //         dP = (V_out - 1.0 V) / 1.0 V/kPa 
+    //            = (V_out - 1.0 V) * 1.0 kPa/V
+    //            = (V_out - 1000 mV) * (1.0*100 mmH2O) / 1000 mV // 1 kPa ~ approx. 100 mmH2O
+    float fPressure = (fMillivolts - 1000.0f) * 0.1f;
 
     // sanity check: no negative pressure value
     fPressure = (fPressure < 0.0f) ? 0.0f : fPressure;
     
     return fPressure;
+}
+
+float pressureToVolumeFlow(float fPressure)
+{
+    return fPressure;
+}
+
+uint16_t volumeFlowToTxWord(float fVolumeFlow)
+{
+    static const uint16_t fOffsetFlow = 32000.0f;
+    static const float fScaleFactor = 140.0f;
+
+    return (uint16_t)(fVolumeFlow * fScaleFactor + fOffsetFlow);
 }
 

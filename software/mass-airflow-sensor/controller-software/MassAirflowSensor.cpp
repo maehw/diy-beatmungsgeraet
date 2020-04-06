@@ -35,7 +35,7 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readMeasurement(float* pfFlow, uin
         {
             *pnRaw = nVal;
         }
-        convertToFlow(&nVal, pfFlow);
+        eStatus = convertToFlow(&nVal, pfFlow);
     }
 
     return eStatus;
