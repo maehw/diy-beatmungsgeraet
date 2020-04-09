@@ -23,7 +23,7 @@
 /* Select differential pressure sensor */
 #define SENSOR_DP_NXP_MPXV5004G
 
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
@@ -153,8 +153,8 @@ void loop()
 
     fVoltage = countsToMillivolts(nConversionValue);
     fVoltage -= fOffsetVoltage;
-    debugPrint( fVoltage );
-    debugPrint(" mV, ");
+//    debugPrint( fVoltage );
+//    debugPrint(" mV, ");
 
     fPressure = millivoltsToPressure( fVoltage );
     debugPrint( fPressure );

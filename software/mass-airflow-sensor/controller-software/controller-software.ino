@@ -22,7 +22,7 @@
     #define debugPrintln  
 #endif
 
-//#define DEBUG_PLOT
+#define DEBUG_PLOT
 
 /* Definition of interval (in milliseconds) to query the sensor via I2C for new measurement.
  * Current setting: query approx. every 20 ms, i.e. at a rate of 50 Hz.
@@ -43,11 +43,11 @@ enum eBreathCyclePhase { BREATH_UNKNOWN, BREATH_INSPIRATION, BREATH_EXPIRATION }
 
 /* define sensor instances with their addresses on the I2C bus */
 MassAirflowSensor g_sensor1(0x40);
-//MassAirflowSensor g_sensor2(0x42);
-MassAirflowSensor g_sensor2(0x44);
+MassAirflowSensor g_sensor2(0x42);
+//MassAirflowSensor g_sensor2(0x44);
 
-//#define SENSOR_GEOMETRY_GRID
-#define SENSOR_GEOMETRY_VENTURI
+#define SENSOR_GEOMETRY_GRID
+//#define SENSOR_GEOMETRY_VENTURI
 
 void setup()
 {
@@ -175,25 +175,48 @@ void loop()
     //fRatio = (fFlow2 != 0.0f ) ? fFlow1/fFlow2 : -1.0f;
 
 #ifdef SENSOR_GEOMETRY_GRID
+//    // current offset in sensor software is: 4.22194373f
+//    fFlow2 -= 2.0f;
+//    if( fFlow2 < 0.0f )
+//    {
+//        fFlow2 = 0.0f;
+//    }
+//    
+//    if( fFlow2 >= 40.0f )
+//    {
+//        fFlow2Corrected = 15.0f * sqrt(fFlow2);
+//    }
+//    else if( fFlow2 < 40.0f && fFlow2 >= 2.0f )
+//    {
+//        fFlow2Corrected = 13.0f * sqrt(fFlow2);
+//    }
+//    else
+//    {
+//        fFlow2Corrected = fFlow2;
+//    }
     // current offset in sensor software is: 4.22194373f
-    fFlow2 -= 2.0f;
-    if( fFlow2 < 0.0f )
+
+    bool bIsNeg = false;
+    bIsNeg = fFlow2 < 0.0f;
+
+    fFlow2Corrected = fabs( fFlow2 );
+    if( fFlow2Corrected >= 40.0f )
     {
-        fFlow2 = 0.0f;
+        fFlow2Corrected = 15.0f * sqrt(fFlow2Corrected);
     }
-    
-    if( fFlow2 >= 40.0f )
+    else if( fFlow2Corrected < 40.0f && fFlow2Corrected >= 2.0f )
     {
-        fFlow2Corrected = 15.0f * sqrt(fFlow2);
-    }
-    else if( fFlow2 < 40.0f && fFlow2 >= 2.0f )
-    {
-        fFlow2Corrected = 13.0f * sqrt(fFlow2);
+        fFlow2Corrected = 13.0f * sqrt(fFlow2Corrected);
     }
     else
     {
-        fFlow2Corrected = fFlow2;
+        fFlow2Corrected = fFlow2Corrected;
     }
+    if( bIsNeg )
+    {
+        fFlow2Corrected *= -1.0f;
+    }
+    
 #elif defined( SENSOR_GEOMETRY_VENTURI )
     // current offset in sensor software is: 4.22194373f
     fFlow2Corrected = fFlow2 + 4.23f;
@@ -215,8 +238,8 @@ void loop()
 
     debugPrint(" Sensirion: ");
     debugPrint( fFlow1 );
-//    debugPrint(", DIY: ");
-//    debugPrint( fFlow2 );
+    debugPrint(", DIY: ");
+    debugPrint( fFlow2 );
     debugPrint(", DIYc: ");
     debugPrint( fFlow2Corrected );
     
