@@ -22,6 +22,9 @@
     #define debugPrintln  
 #endif
 
+/* if DEBUG_PLOT is defined there's a constant flow of data,
+ * otherwise breath cycles will be estimated
+ */
 #define DEBUG_PLOT
 
 /* Definition of interval (in milliseconds) to query the sensor via I2C for new measurement.
@@ -43,11 +46,8 @@ enum eBreathCyclePhase { BREATH_UNKNOWN, BREATH_INSPIRATION, BREATH_EXPIRATION }
 
 /* define sensor instances with their addresses on the I2C bus */
 MassAirflowSensor g_sensor1(0x40);
-MassAirflowSensor g_sensor2(0x42);
-//MassAirflowSensor g_sensor2(0x44);
-
-#define SENSOR_GEOMETRY_GRID
-//#define SENSOR_GEOMETRY_VENTURI
+//MassAirflowSensor g_sensor2(0x42);
+MassAirflowSensor g_sensor2(0x44);
 
 void setup()
 {
@@ -63,7 +63,7 @@ void setup()
     pinMode(RT_SUPERVISION_PIN, OUTPUT);
 #endif
 
-    debugPrintln("Finished setup.");
+    debugPrintln("Finished configuration. Reading serial numbers...");
 
     if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor1.readSerialNumber(&nSensorSerialNo) )
     {
@@ -74,7 +74,6 @@ void setup()
     else
     {
         debugPrintln("[ERROR] Failed to read serial number of sensor 1.");
-        for(;;);
     }
 
     if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor2.readSerialNumber(&nSensorSerialNo) )
@@ -86,32 +85,32 @@ void setup()
     else
     {
         debugPrintln("[ERROR] Failed to read serial number of sensor 2.");
-        for(;;);
     }
+
+    debugPrintln("Finished setup().");
 }
 
 void loop()
 {
+    /* Volume flow measurement related variables */
     static MassAirflowSensor::eRetVal eStatus1 = MassAirflowSensor::SENSOR_FAIL;
     static MassAirflowSensor::eRetVal eStatus2 = MassAirflowSensor::SENSOR_FAIL;
     static bool bSendMeasCommand1 = true;
     static bool bSendMeasCommand2 = true;
     static float fFlow1 = 0.0f;
     static float fFlow2 = 0.0f;
-    static float fFlow2Corrected = 0.0f;
-//    static float fRatio = 0.0f;
-    static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
-    static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
-    static float fAccu1 = 0.0f;
-    static float fAccu2 = 0.0f;
-
-    static uint32_t nPhaseCounter = 0;
-    static float fPhaseDuration = 0.0f;
-    
 #ifdef DEBUG
     static uint16_t nRaw1 = 0;
     static uint16_t nRaw2 = 0;
 #endif
+
+    /* Breath cycle / accumulated volume related variables */
+    static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
+    static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
+    static float fAccu1 = 0.0f;
+    static float fAccu2 = 0.0f;
+    static uint32_t nPhaseCounter = 0;
+    static float fPhaseDuration = 0.0f;
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, HIGH);
@@ -171,82 +170,14 @@ void loop()
     }
 #endif
 
-    //fFlow2 = fFlow2 * 4.0f;
-    //fRatio = (fFlow2 != 0.0f ) ? fFlow1/fFlow2 : -1.0f;
-
-#ifdef SENSOR_GEOMETRY_GRID
-//    // current offset in sensor software is: 4.22194373f
-//    fFlow2 -= 2.0f;
-//    if( fFlow2 < 0.0f )
-//    {
-//        fFlow2 = 0.0f;
-//    }
-//    
-//    if( fFlow2 >= 40.0f )
-//    {
-//        fFlow2Corrected = 15.0f * sqrt(fFlow2);
-//    }
-//    else if( fFlow2 < 40.0f && fFlow2 >= 2.0f )
-//    {
-//        fFlow2Corrected = 13.0f * sqrt(fFlow2);
-//    }
-//    else
-//    {
-//        fFlow2Corrected = fFlow2;
-//    }
-    // current offset in sensor software is: 4.22194373f
-
-    bool bIsNeg = false;
-    bIsNeg = fFlow2 < 0.0f;
-
-    fFlow2Corrected = fabs( fFlow2 );
-    if( fFlow2Corrected >= 40.0f )
-    {
-        fFlow2Corrected = 15.0f * sqrt(fFlow2Corrected);
-    }
-    else if( fFlow2Corrected < 40.0f && fFlow2Corrected >= 2.0f )
-    {
-        fFlow2Corrected = 13.0f * sqrt(fFlow2Corrected);
-    }
-    else
-    {
-        fFlow2Corrected = fFlow2Corrected;
-    }
-    if( bIsNeg )
-    {
-        fFlow2Corrected *= -1.0f;
-    }
-    
-#elif defined( SENSOR_GEOMETRY_VENTURI )
-    // current offset in sensor software is: 4.22194373f
-    fFlow2Corrected = fFlow2 + 4.23f;
-    if( fFlow2Corrected < 0.0f )
-    {
-        fFlow2Corrected = 0.0f;
-    }
-    else
-    {
-        fFlow2Corrected = 6.4f * sqrt(fFlow2Corrected);
-    }
-#endif
-
 #ifdef DEBUG_PLOT
-//    debugPrint(" Sensirion: ");
-//    debugPrint( nRaw1 );
-//    debugPrint(", DIY: ");
-//    debugPrintln( nRaw2 );
-
-    debugPrint(" Sensirion: ");
+    debugPrint(" First: ");
     debugPrint( fFlow1 );
-    debugPrint(", DIY: ");
+    debugPrint(", Second: ");
     debugPrint( fFlow2 );
-    debugPrint(", DIYc: ");
-    debugPrint( fFlow2Corrected );
     
     debugPrintln("");
-#endif
-
-#ifndef DEBUG_PLOT
+#else
     /* Allow estimation of accumulated volume */
     if( fFlow1 >= 1.0f )
     {
@@ -295,9 +226,10 @@ void loop()
     }
     ePhaseOld = ePhase;
     nPhaseCounter++;
+
     /* TODO/FIXME: be aware of floating-point inaccuricy */
     fAccu1 += fFlow1;
-    fAccu2 += fFlow2Corrected;
+    fAccu2 += fFlow2;
 #endif
 
 #ifdef RT_SUPERVISION_PIN

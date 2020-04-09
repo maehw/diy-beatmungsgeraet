@@ -9,7 +9,7 @@
 //     Analog input: A0
 //     Real-time supervision pin: A3
 //     Interrupt supervision pin: A2
-//   EEPROM is used to store sensor offset voltage for calibration
+//   TODO/FIXME: EEPROM is used to store sensor offset voltage for calibration
 
 /* Mapping of the analog input pin, define alias here */
 #define ANALOG_INPUT_PIN      (A0)
@@ -22,12 +22,22 @@
 
 /* Select differential pressure sensor */
 #define SENSOR_DP_NXP_MPXV5004G
+//#define SENSOR_DP_NXP_MP3V5004G
+
+/* Select sensor geometry, relevant for conversion to volume flow */
+#define SENSOR_GEOMETRY_GRID
+//#define SENSOR_GEOMETRY_VENTURI
+
+/* Define sensor offset voltage during idle, when there's no differential pressure */
+float fOffsetVoltage = -38.1f; /* in milliVolts */
+
+/* Disallow negative differential pressure values, i.e. only flow in one direction */
+#define DISALLOW_NEGATIVE_VALUES
 
 //#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
-    //#define MOCK_SENSOR_FLOW_VALUES /* Use mock/fake values instead of the real measurements, allows debugging */
     //#define DEBUG_INT /* Depending on the timing of the sensor controller requests, it may be useful to turn this off */
 #else
     #define debugPrint    
@@ -53,13 +63,10 @@
 /* Definition of sensor modes, i.e. what values will be return upon Wire transmit request event */
 enum eSensorMode { SENSOR_MODE_NONE = 0, SENSOR_MODE_MEASURE, SENSOR_MODE_SERIALNO };
 
-/* Definition of sensor flow mapping, i.e. which method to use in order to calculate flow from differential pressure */
-enum eSensorFlowMapping { SENSOR_MAP_NONE = 0, SENSOR_MAP_LIN, SENSOR_MAP_SQRT };
-
 /* define the address of the sensor on the I2C bus;
  * TODO/FIXME: decide address to be used via GPIO input pin during setup()
  */
-uint8_t g_nDeviceAddress = 0x42;
+uint8_t g_nDeviceAddress = 0x44;
 
 /* Initialize global variables */
 //volatile int g_nConversionValue = 0; /* digital value for sensor's analog input */
@@ -73,10 +80,8 @@ union eepromContent {
        float fVoltage;
     };
 };
-
-float fOffsetVoltage = 44.9f; /* in milliVolts */
-
 union eepromContent g_eepromContent;
+
 
 void setup()
 {
@@ -97,14 +102,24 @@ void setup()
     Serial.println("Built for NXP MP3V5004G sensor.");
 #elif defined( SENSOR_DP_NXP_MPXV5004G )
     Serial.println("Built for NXP MPXV5004G sensor.");
+#else
+    #error Selected sensor is not supported.
 #endif
 
-    g_eepromContent.raw[0] = EEPROM.read(0x0);
-    g_eepromContent.raw[1] = EEPROM.read(0x1);
-    g_eepromContent.raw[2] = EEPROM.read(0x2);
-    g_eepromContent.raw[3] = EEPROM.read(0x3);
+#ifdef SENSOR_GEOMETRY_GRID
+    Serial.println("Built for grid sensor geometry.");
+#elif defined( SENSOR_GEOMETRY_VENTURI )
+    Serial.println("Built for venturi sensor geometry.");
+#else
+    #error Selected sensor geometry is not supported.
+#endif
 
 // TODO/FIXME: allow voltage offset to be read from EEPROM where it is programmed once
+//    g_eepromContent.raw[0] = EEPROM.read(0x0);
+//    g_eepromContent.raw[1] = EEPROM.read(0x1);
+//    g_eepromContent.raw[2] = EEPROM.read(0x2);
+//    g_eepromContent.raw[3] = EEPROM.read(0x3);
+
 //    Serial.print("EEPROM values: raw ");
 //    Serial.print(g_eepromContent.raw[0]);
 //    Serial.print(g_eepromContent.raw[1]);
@@ -126,9 +141,8 @@ void loop()
     static int nConversionValue = 0;
     static float fVoltage = 0.0f;
     static float fPressure = 0.0f;
-    static float fVolumeFlow = -40.0f;
+    static float fVolumeFlow = 0.0f;
     static uint16_t nTxWord = 0;
-    static eSensorFlowMapping eMapMode = SENSOR_MAP_LIN;
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, HIGH);
@@ -145,39 +159,25 @@ void loop()
         debugPrint("[ ] "); /* not in measuring mode */
     }
 
-    // Debug output the sensor's reading (conversion valie)
-//    debugPrint("Sensor value: ");
-
-//    debugPrint(nConversionValue); // raw reading
-//    debugPrint(" counts, ");
-
     fVoltage = countsToMillivolts(nConversionValue);
     fVoltage -= fOffsetVoltage;
-//    debugPrint( fVoltage );
-//    debugPrint(" mV, ");
-
     fPressure = millivoltsToPressure( fVoltage );
-    debugPrint( fPressure );
-    debugPrint(" mmWater, ");
+    fVolumeFlow = pressureToVolumeFlow( fPressure );
 
-#ifdef MOCK_SENSOR_FLOW_VALUES
-    fVolumeFlow = fVolumeFlow + 1.0f;
-    if( fVolumeFlow > 40.0f )
-    {
-        fVolumeFlow = -40.0f;
-    }
-#else
-    fVolumeFlow = pressureToVolumeFlow( fPressure, eMapMode );
-#endif
-
-    debugPrint( fVolumeFlow );
-    debugPrint(" flow, ");
-
+    /* prepare value for serial communication via I2C */
     g_nTxWord = volumeFlowToTxWord( fVolumeFlow );
 
-//    debugPrint( g_nTxWord );
-//    debugPrint(" tx");
 
+    // Debug output the sensor's reading (conversion valie)
+//    debugPrint("Sensor value: ");
+//    debugPrint(nConversionValue); // raw reading
+//    debugPrint(" counts, ");
+//    debugPrint( fVoltage );
+//    debugPrint(" mV, ");
+    debugPrint( fPressure );
+    debugPrint(" mmWater, ");
+    debugPrint( fVolumeFlow );
+    debugPrint(" flow");
     debugPrintln("");
 
 #ifdef RT_SUPERVISION_PIN
@@ -363,29 +363,50 @@ float millivoltsToPressure(float fMillivolts)
     #error Unknown differential pressure sensor selected.
 #endif
 
-    // sanity check: no negative pressure value
-    //fPressure = (fPressure < 0.0f) ? 0.0f : fPressure;
-    
+    /* do not allow negative differential pressure value */
+#ifdef DISALLOW_NEGATIVE_VALUES
+    fPressure = (fPressure < 0.0f) ? 0.0f : fPressure;
+#endif
+
     return fPressure;
 }
 
-float pressureToVolumeFlow(float fPressure, eSensorFlowMapping eMapMode)
+/* convert pressure to volume flow in liters per minute */
+float pressureToVolumeFlow(float fPressure)
 {
     static float fFlow = 0.0f;
-//    static const float fFlowOffset = 4.22194373f; /* subtract offset at zero flow */
 
-    switch( eMapMode )
+#ifdef SENSOR_GEOMETRY_GRID
+    static bool bIsNeg = false;
+
+    bIsNeg = fPressure < 0.0f; /* store sign for later usage */
+    fFlow = fabs( fPressure ); /* remove sign, i.e. use absolute value */
+    if( fFlow >= 40.0f )
     {
-        case SENSOR_MAP_LIN:
-            fFlow = fPressure;
-            /* TODO/FIXME: still needs to be fixed */
-            break;
-        case SENSOR_MAP_NONE:
-        default:
-            fFlow = 0.0f;
-            break;
+        fFlow = 15.0f * sqrt(fFlow);
+    }
+    else if( fFlow < 40.0f && fFlow >= 2.0f )
+    {
+        fFlow = 13.0f * sqrt(fFlow);
     }
 
+    if( bIsNeg )
+    {
+        fFlow *= -1.0f; /* add sign back */
+    }
+#elif defined( SENSOR_GEOMETRY_VENTURI )
+    if( fPressure < 0.0f ) /* cut off negative values */
+    {
+        fFlow = 0.0f;
+    }
+    else
+    {
+        fFlow = 6.4f * sqrt(fPressure);
+    }
+#else
+    fFlow = fPressure;
+#endif
+    
     return fFlow;
 }
 

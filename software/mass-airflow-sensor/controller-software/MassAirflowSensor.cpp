@@ -124,6 +124,13 @@ MassAirflowSensor::eRetVal MassAirflowSensor::convertToFlow(uint16_t* pnVal, flo
 
 MassAirflowSensor::eRetVal MassAirflowSensor::readSerialNumber(int32_t* pnSerialNo)
 {
+#ifdef DEBUG
+    debugPrint("readSerialNumber(");
+    debugPrint("pnSerialNo=");
+    debugPrint((long unsigned int)pnSerialNo);
+    debugPrintln(")");
+#endif
+
     if( SENSOR_SUCCESS != sendReadSerialNumberCmd() )
     {
         return SENSOR_CMD_ERROR; 
