@@ -18,7 +18,7 @@
 /* Mapping of the digital output pin for interrupt supervision, define alias here */
 #define INT_SUPERVISION_PIN   (A2)
 
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
@@ -131,11 +131,14 @@ void loop()
 #endif
 
     debugPrint( fVolumeFlow );
-    debugPrintln(" flow, ");
+    debugPrint(" flow, ");
 
-//    g_nTxWord = volumeFlowToTxWord( fVolumeFlow );
-//    debugPrint( g_nTxWord );
-//    debugPrintln(" tx");
+    g_nTxWord = volumeFlowToTxWord( fVolumeFlow );
+
+    debugPrint( g_nTxWord );
+    debugPrint(" tx");
+
+    debugPrintln("");
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, LOW);
@@ -325,12 +328,13 @@ float millivoltsToPressure(float fMillivolts)
 
 float pressureToVolumeFlow(float fPressure, eSensorFlowMapping eMapMode)
 {
-    float fFlow;
+    static float fFlow = 0.0f;
+    static const float fFlowOffset = 4.0f;
 
     switch( eMapMode )
     {
         case SENSOR_MAP_LIN:
-            fFlow = fPressure;
+            fFlow = fPressure - fFlowOffset;
             break;
         case SENSOR_MAP_NONE:
         default:
