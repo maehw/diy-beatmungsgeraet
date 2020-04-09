@@ -22,6 +22,8 @@
     #define debugPrintln  
 #endif
 
+//#define DEBUG_PLOT
+
 /* Definition of interval (in milliseconds) to query the sensor via I2C for new measurement.
  * Current setting: query approx. every 20 ms, i.e. at a rate of 50 Hz.
  * Note: This is not exact as there will be plenty of overhead.
@@ -78,6 +80,7 @@ float g_fFilterInput[FILTER_TAP_NUM];
 
 /* define sensor instances with their addresses on the I2C bus */
 MassAirflowSensor g_sensor1(0x40);
+//MassAirflowSensor g_sensor2(0x42);
 MassAirflowSensor g_sensor2(0x44);
 
 //#define SENSOR_GEOMETRY_GRID
@@ -135,13 +138,15 @@ void loop()
     static float fFlow1 = 0.0f;
     static float fFlow2 = 0.0f;
     static float fFlow2Corrected = 0.0f;
-    static float fRatio = 0.0f;
+//    static float fRatio = 0.0f;
 //    static float fFlowFiltered = 0.0f;
-//    static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
-//    static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
-//    static uint32_t nPhaseCounter = 0;
-//    static float fAccu = 0.0f;
-//    static float fPhaseDuration = 0.0f;
+    static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
+    static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
+    static float fAccu1 = 0.0f;
+    static float fAccu2 = 0.0f;
+
+    static uint32_t nPhaseCounter = 0;
+    static float fPhaseDuration = 0.0f;
     
 #ifdef DEBUG
     static uint16_t nRaw1 = 0;
@@ -162,19 +167,26 @@ void loop()
 
     if( MassAirflowSensor::SENSOR_SUCCESS == eStatus1 )
     {
+#ifdef DEBUG_PLOT
         debugPrint("[*]");
+#endif
         bSendMeasCommand1 = false; /* do not resend measurement command after first success */
     }
+#ifdef DEBUG_PLOT
     else
     {
         debugPrint("[ ]");
     }
+#endif
 
     if( MassAirflowSensor::SENSOR_SUCCESS == eStatus2 )
     {
+#ifdef DEBUG_PLOT
         debugPrint("[*]");
+#endif
         bSendMeasCommand2 = false; /* do not resend measurement command after first success */
     }
+#ifdef DEBUG_PLOT
     else
     {
         switch( eStatus2 )
@@ -197,12 +209,19 @@ void loop()
                 break;
         }
     }
+#endif
 
     //fFlow2 = fFlow2 * 4.0f;
     //fRatio = (fFlow2 != 0.0f ) ? fFlow1/fFlow2 : -1.0f;
 
 #ifdef SENSOR_GEOMETRY_GRID
     // current offset in sensor software is: 4.22194373f
+    fFlow2 -= 2.0f;
+    if( fFlow2 < 0.0f )
+    {
+        fFlow2 = 0.0f;
+    }
+    
     if( fFlow2 >= 40.0f )
     {
         fFlow2Corrected = 15.0f * sqrt(fFlow2);
@@ -224,10 +243,11 @@ void loop()
     }
     else
     {
-        fFlow2Corrected = 6.6f * sqrt(fFlow2Corrected);
+        fFlow2Corrected = 6.4f * sqrt(fFlow2Corrected);
     }
 #endif
 
+#ifdef DEBUG_PLOT
 //    debugPrint(" Sensirion: ");
 //    debugPrint( nRaw1 );
 //    debugPrint(", DIY: ");
@@ -240,89 +260,62 @@ void loop()
     debugPrint(", DIYc: ");
     debugPrint( fFlow2Corrected );
     
-//    debugPrint(", ");
-//    debugPrint(" DIYr: ");
-//    debugPrint( fFlow2 );
-
-//    float fFilteredRatio;
-//    fFilteredRatio = filter(fRatio);
-//
-//    debugPrint(", ");
-//    debugPrint("Ratio(filtered): ");
-//    debugPrint( fFilteredRatio );
-
     debugPrintln("");
+#endif
 
-//    switch( eStatus )
-//    {
-//        case MassAirflowSensor::SENSOR_SUCCESS:
-//            fFlowFiltered = filter(fFlow);
-//
-//            if( fFlowFiltered >= 1.0f )
-//            {
-//                ePhase = BREATH_INSPIRATION;
-//            }
-//            else if( fFlowFiltered <= -1.0f )
-//            {
-//                ePhase = BREATH_EXPIRATION;
-//            }
-//
-//            if( ePhaseOld != ePhase )
-//            {
-//                fPhaseDuration = (float)nPhaseCounter/SAMPLES_PER_SECOND;
-//                fAccu = fabs(fAccu);
-//                if( BREATH_INSPIRATION == ePhaseOld )
-//                {
-//                    Serial.print("Stopped inspiration after ");
-//                    Serial.print( fPhaseDuration );
-//                    Serial.print(" seconds with an accumulated volume of ");
-//                    Serial.print( fAccu );
-//                    Serial.println(" liters.");
-//                }
-//                else if( BREATH_EXPIRATION == ePhaseOld )
-//                {
-//                    Serial.print("Stopped expiration after ");
-//                    Serial.print( fPhaseDuration );
-//                    Serial.print(" seconds with an accumulated volume of ");
-//                    Serial.print( fAccu );
-//                    Serial.println(" liters.");
-//                }
-//                nPhaseCounter = 0;
-//                fAccu = 0.0f;
-//            }
-//            ePhaseOld = ePhase;
-//            nPhaseCounter++;
-//            fAccu += ( fFlowFiltered / (60.0f * SAMPLES_PER_SECOND) );
-//
-//            /*
-//            debugPrint("Raw: ");
-//            debugPrint( nRaw );
-//            debugPrint(", ");
-//            */
-//            /*
-//            debugPrint("Flow: ");
-//            debugPrint( fFlow );
-//            debugPrint(" [slm]");
-//            */
-//            debugPrint("Filtered: ");
-//            debugPrint( fFlowFiltered );
-//            debugPrint(" [slm]");
-//            debugPrint(", Phase: ");
-//            debugPrint( ePhase * 10 );
-//            debugPrintln("");
-//    
-//            bSendMeasCommand = false; /* do not resend measurement command after first success */
-//            break;
-//        case MassAirflowSensor::SENSOR_RXCNT_ERROR:
-//            debugPrintln("[ERROR] Receive count error.");
-//            break;
-//        case MassAirflowSensor::SENSOR_CRC_ERROR:
-//            debugPrintln("[ERROR] CRC error.");
-//            break;
-//        default:
-//            debugPrintln("[ERROR] Measurement error.");
-//            break;
-//    }
+#ifndef DEBUG_PLOT
+    /* Allow estimation of accumulated volume */
+    if( fFlow1 >= 1.0f )
+    {
+        ePhase = BREATH_INSPIRATION;
+    }
+    else
+    {
+        ePhase = BREATH_UNKNOWN;
+    }
+
+    if( ePhaseOld != ePhase )
+    {
+        fPhaseDuration = (float)nPhaseCounter/SAMPLES_PER_SECOND;
+        fAccu1 = fabs(fAccu1) / (60.0f * SAMPLES_PER_SECOND);
+        fAccu2 = fabs(fAccu2) / (60.0f * SAMPLES_PER_SECOND);
+        if( BREATH_INSPIRATION == ePhaseOld )
+        {
+//            Serial.print("Stopped inspiration after ");
+//            Serial.print( fPhaseDuration );
+//            Serial.print(" seconds w/ an accumulated volume of ");
+//            Serial.print( fAccu1 );
+//            Serial.print(" / ");
+//            Serial.print( fAccu2 );
+//            Serial.print(" liters.");
+//            Serial.println("");
+              Serial.print( fAccu1*1000 );
+              Serial.print(";");
+              Serial.print( fAccu2*1000 );
+              Serial.print(";");
+              float fDev = fabs(fAccu1 - fAccu2)/fabs(fAccu1) * 100.0f;
+              Serial.print(fDev);
+              Serial.print("%");
+              Serial.println("");
+        }
+        else
+        {
+//            Serial.print("Stopped pause after ");
+//            Serial.print( fPhaseDuration );
+//            Serial.println("");
+        }
+
+        /* Start a new phase: reset counter and accumulated volume */
+        nPhaseCounter = 0;
+        fAccu1 = 0.0f;
+        fAccu2 = 0.0f;
+    }
+    ePhaseOld = ePhase;
+    nPhaseCounter++;
+    /* TODO/FIXME: be aware of floating-point inaccuricy */
+    fAccu1 += fFlow1;
+    fAccu2 += fFlow2Corrected;
+#endif
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, LOW);
