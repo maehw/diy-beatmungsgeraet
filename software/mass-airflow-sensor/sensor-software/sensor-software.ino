@@ -18,10 +18,12 @@
 /* Mapping of the digital output pin for interrupt supervision, define alias here */
 #define INT_SUPERVISION_PIN   (A2)
 
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
+    //#define MOCK_SENSOR_FLOW_VALUES /* Use mock/fake values instead of the real measurements, allows debugging */
+    //#define DEBUG_INT /* Depending on the timing of the sensor controller requests, it may be useful to turn this off */
 #else
     #define debugPrint    
     #define debugPrintln  
@@ -101,25 +103,28 @@ void loop()
         debugPrint("[ ] "); /* not in measuring mode */
     }
 
-//    // Debug output the sensor's reading (conversion valie)
-//    debugPrint("Sensor value: ");
-//
-//    debugPrint(nConversionValue); // raw reading
-//    debugPrint(" counts, ");
-//
-//    debugPrint( countsToMillivolts(nConversionValue) );
-//    debugPrint(" mV, ");
-//
-//    fPressure = millivoltsToPressure( countsToMillivolts( nConversionValue ) );
-//    debugPrint( fPressure );
-//    debugPrint(" mmWater, ");
+    // Debug output the sensor's reading (conversion valie)
+    debugPrint("Sensor value: ");
 
-    //fVolumeFlow = pressureToVolumeFlow( fPressure );
+    debugPrint(nConversionValue); // raw reading
+    debugPrint(" counts, ");
+
+    debugPrint( countsToMillivolts(nConversionValue) );
+    debugPrint(" mV, ");
+
+    fPressure = millivoltsToPressure( countsToMillivolts( nConversionValue ) );
+    debugPrint( fPressure );
+    debugPrint(" mmWater, ");
+
+#ifdef MOCK_SENSOR_FLOW_VALUES
     fVolumeFlow = fVolumeFlow + 1.0f;
     if( fVolumeFlow > 40.0f )
     {
         fVolumeFlow = -40.0f;
     }
+#else
+    fVolumeFlow = pressureToVolumeFlow( fPressure );
+#endif
 
     debugPrint( fVolumeFlow );
     debugPrint(" flow, ");
@@ -232,13 +237,17 @@ void transmitRequestEvent(void)
     digitalWrite(INT_SUPERVISION_PIN, HIGH);
 #endif
 
-    debugPrintln("Tx request");
+#ifdef DEBUG_INT
+    debugPrintln("[DEBUG] Tx request");
+#endif
 
     switch( g_eMode )
     {
         case SENSOR_MODE_MEASURE:
             /* TODO/FIXME: add true measurement data and add CRC */
-            debugPrintln("Tx measurement");
+#ifdef DEBUG_INT
+            debugPrintln("[DEBUG] Tx measurement");
+#endif
             char sMeas[2];
             //sMeas[0] = 'F';
             //sMeas[1] = 'L';
@@ -254,7 +263,9 @@ void transmitRequestEvent(void)
             sSerNo[1] = 'R';
             sSerNo[2] = 'N';
             sSerNo[3] = 'O';
-            debugPrintln("Tx serialno");
+#ifdef DEBUG_INT
+            debugPrintln("[DEBUG] Tx serialno");
+#endif
             Wire.write((char)sSerNo[0]);
             Wire.write((char)sSerNo[1]);
             Wire.write((char)calcCrc(&sSerNo[0], 2) );
@@ -264,7 +275,9 @@ void transmitRequestEvent(void)
             break;
         case SENSOR_MODE_NONE:
         default:
-            debugPrintln("Tx nothing (controller will read 0xFF)");
+#ifdef DEBUG_INT
+            debugPrintln("[WARN] Tx nothing (controller will read 0xFF)");
+#endif
             break;
     }
 
