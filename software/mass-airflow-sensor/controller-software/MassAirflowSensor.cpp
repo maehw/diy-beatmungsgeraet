@@ -2,6 +2,7 @@
 
 #include <Wire.h>
 
+//#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
@@ -19,6 +20,17 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readMeasurement(float* pfFlow, uin
 {
     static eRetVal eStatus;
     static uint16_t nVal;
+
+#ifdef DEBUG
+    debugPrint("readMeasurement(");
+    debugPrint("pfFlow=");
+    debugPrint((long unsigned int)pfFlow);
+    debugPrint(", pnRaw=");
+    debugPrint((long unsigned int)pnRaw);
+    debugPrint(", bSendMeasCmd=");
+    debugPrint(bSendMeasCmd);
+    debugPrintln(")");
+#endif
 
     if( bSendMeasCmd )
     {

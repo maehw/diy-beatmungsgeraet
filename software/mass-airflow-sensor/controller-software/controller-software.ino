@@ -78,7 +78,10 @@ float g_fFilterInput[FILTER_TAP_NUM];
 
 /* define sensor instances with their addresses on the I2C bus */
 MassAirflowSensor g_sensor1(0x40);
-MassAirflowSensor g_sensor2(0x42);
+MassAirflowSensor g_sensor2(0x44);
+
+//#define SENSOR_GEOMETRY_GRID
+#define SENSOR_GEOMETRY_VENTURI
 
 void setup()
 {
@@ -198,6 +201,8 @@ void loop()
     //fFlow2 = fFlow2 * 4.0f;
     //fRatio = (fFlow2 != 0.0f ) ? fFlow1/fFlow2 : -1.0f;
 
+#ifdef SENSOR_GEOMETRY_GRID
+    // current offset in sensor software is: 4.22194373f
     if( fFlow2 >= 40.0f )
     {
         fFlow2Corrected = 15.0f * sqrt(fFlow2);
@@ -210,6 +215,18 @@ void loop()
     {
         fFlow2Corrected = fFlow2;
     }
+#elif defined( SENSOR_GEOMETRY_VENTURI )
+    // current offset in sensor software is: 4.22194373f
+    fFlow2Corrected = fFlow2 + 4.23f;
+    if( fFlow2Corrected < 0.0f )
+    {
+        fFlow2Corrected = 0.0f;
+    }
+    else
+    {
+        fFlow2Corrected = 6.6f * sqrt(fFlow2Corrected);
+    }
+#endif
 
 //    debugPrint(" Sensirion: ");
 //    debugPrint( nRaw1 );
