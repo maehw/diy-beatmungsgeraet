@@ -104,3 +104,4 @@ static inline crc_t crc_finalize(crc_t crc)
 #endif
 
 #endif      /* CRC8_H */
+

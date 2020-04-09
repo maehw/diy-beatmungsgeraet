@@ -18,7 +18,10 @@
 /* Mapping of the digital output pin for interrupt supervision, define alias here */
 #define INT_SUPERVISION_PIN   (A2)
 
-#define DEBUG
+/* Select differential pressure sensor */
+#define SENSOR_DP_NXP_MPXV5004G
+
+//#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
@@ -77,6 +80,12 @@ void setup()
     pinMode(INT_SUPERVISION_PIN, OUTPUT);
 #endif
 
+#ifdef SENSOR_DP_NXP_MP3V5004G
+    Serial.println("Built for NXP MP3V5004G sensor.");
+#elif defined( SENSOR_DP_NXP_MPXV5004G )
+    Serial.println("Built for NXP MPXV5004G sensor.");
+#endif
+
 #ifdef DEBUG
     Serial.println("Debug mode active.");
 #else
@@ -108,7 +117,7 @@ void loop()
     }
 
     // Debug output the sensor's reading (conversion valie)
-    debugPrint("Sensor value: ");
+//    debugPrint("Sensor value: ");
 
 //    debugPrint(nConversionValue); // raw reading
 //    debugPrint(" counts, ");
@@ -135,8 +144,8 @@ void loop()
 
     g_nTxWord = volumeFlowToTxWord( fVolumeFlow );
 
-    debugPrint( g_nTxWord );
-    debugPrint(" tx");
+//    debugPrint( g_nTxWord );
+//    debugPrint(" tx");
 
     debugPrintln("");
 
@@ -303,15 +312,15 @@ float countsToMillivolts(int nCounts)
 
 float millivoltsToPressure(float fMillivolts)
 {
+#ifdef SENSOR_DP_NXP_MP3V5004G
     // based on MP3V5004G datasheet:
     // for now, assume a linear transfer function of the sensor,
     // e.g. V_out = 0.6 V/kPa * dP + 0.6 V
     //         dP = (V_out - 0.6 V) / 0.6 V/kPa 
     //            = (V_out - 0.6 V) * 1.667 kPa/V
     //            = (V_out - 600 mV) * (1.667*100 mmH2O) / 1000 mV // 1 kPa ~ approx. 100 mmH2O
-//
-//    float fPressure = (fMillivolts - 600.0f) * 0.1666666667f;
-
+    float fPressure = (fMillivolts - 600.0f) * 0.1666666667f;
+#elif defined( SENSOR_DP_NXP_MPXV5004G )
     // based on MPXV5004G datasheet:
     // for now, assume a linear transfer function of the sensor,
     // e.g. V_out = 1.0 V/kPa * dP + 1.0 V
@@ -319,6 +328,9 @@ float millivoltsToPressure(float fMillivolts)
     //            = (V_out - 1.0 V) * 1.0 kPa/V
     //            = (V_out - 1000 mV) * (1.0*100 mmH2O) / 1000 mV // 1 kPa ~ approx. 100 mmH2O
     float fPressure = (fMillivolts - 1000.0f) * 0.1f;
+#else
+    #error Unknown differential pressure sensor selected.
+#endif
 
     // sanity check: no negative pressure value
     fPressure = (fPressure < 0.0f) ? 0.0f : fPressure;
@@ -329,12 +341,13 @@ float millivoltsToPressure(float fMillivolts)
 float pressureToVolumeFlow(float fPressure, eSensorFlowMapping eMapMode)
 {
     static float fFlow = 0.0f;
-    static const float fFlowOffset = 4.0f;
+    static const float fFlowOffset = 4.22194373f; /* subtract offset at zero flow */
 
     switch( eMapMode )
     {
         case SENSOR_MAP_LIN:
-            fFlow = fPressure - fFlowOffset;
+            fFlow = (fPressure - fFlowOffset);
+            /* TODO/FIXME: still needs to be fixed */
             break;
         case SENSOR_MAP_NONE:
         default:

@@ -54,3 +54,4 @@ crc_t crc_update(crc_t crc, const void *data, size_t data_len)
     }
     return crc & 0xff;
 }
+

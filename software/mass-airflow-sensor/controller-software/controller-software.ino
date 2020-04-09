@@ -131,6 +131,7 @@ void loop()
     static bool bSendMeasCommand2 = true;
     static float fFlow1 = 0.0f;
     static float fFlow2 = 0.0f;
+    static float fFlow2Corrected = 0.0f;
     static float fRatio = 0.0f;
 //    static float fFlowFiltered = 0.0f;
 //    static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
@@ -173,18 +174,67 @@ void loop()
     }
     else
     {
-        debugPrint("[ ]");
+        switch( eStatus2 )
+        {
+            case MassAirflowSensor::SENSOR_CRC_ERROR:
+                debugPrint("[C]");
+                break;
+            case MassAirflowSensor::SENSOR_CMD_ERROR:
+                debugPrint("[M]");
+                break;
+            case MassAirflowSensor::SENSOR_RXCNT_ERROR:
+                debugPrint("[R]");
+                break;
+            case MassAirflowSensor::SENSOR_PARAM_ERROR:
+                debugPrint("[P]");
+                break;
+            case MassAirflowSensor::SENSOR_FAIL:
+            default:
+                debugPrint("[E]");
+                break;
+        }
     }
 
-    fRatio = (fFlow2 != 0.0f ) ? fFlow1/fFlow2 : 0.0f;
+    //fFlow2 = fFlow2 * 4.0f;
+    //fRatio = (fFlow2 != 0.0f ) ? fFlow1/fFlow2 : -1.0f;
 
-    debugPrint(" Flow1: ");
+    if( fFlow2 >= 40.0f )
+    {
+        fFlow2Corrected = 15.0f * sqrt(fFlow2);
+    }
+    else if( fFlow2 < 40.0f && fFlow2 >= 2.0f )
+    {
+        fFlow2Corrected = 13.0f * sqrt(fFlow2);
+    }
+    else
+    {
+        fFlow2Corrected = fFlow2;
+    }
+
+//    debugPrint(" Sensirion: ");
+//    debugPrint( nRaw1 );
+//    debugPrint(", DIY: ");
+//    debugPrintln( nRaw2 );
+
+    debugPrint(" Sensirion: ");
     debugPrint( fFlow1 );
-    debugPrint(", Flow2: ");
-    debugPrint( fFlow2 );
-    debugPrint(", Ratio: ");
-    debugPrintln( fRatio );
+//    debugPrint(", DIY: ");
+//    debugPrint( fFlow2 );
+    debugPrint(", DIYc: ");
+    debugPrint( fFlow2Corrected );
     
+//    debugPrint(", ");
+//    debugPrint(" DIYr: ");
+//    debugPrint( fFlow2 );
+
+//    float fFilteredRatio;
+//    fFilteredRatio = filter(fRatio);
+//
+//    debugPrint(", ");
+//    debugPrint("Ratio(filtered): ");
+//    debugPrint( fFilteredRatio );
+
+    debugPrintln("");
 
 //    switch( eStatus )
 //    {
@@ -290,3 +340,5 @@ float filter(float fIn)
 
     return fOut;
 }
+
+

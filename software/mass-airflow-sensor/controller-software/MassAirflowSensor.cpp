@@ -181,3 +181,4 @@ crc_t MassAirflowSensor::calcCrc(const unsigned char *pData, size_t nDataLen)
 
     return nCrc;
 }
+
