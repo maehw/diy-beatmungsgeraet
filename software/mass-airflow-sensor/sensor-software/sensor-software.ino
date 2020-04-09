@@ -18,7 +18,7 @@
 /* Mapping of the digital output pin for interrupt supervision, define alias here */
 #define INT_SUPERVISION_PIN   (A2)
 
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
@@ -47,6 +47,9 @@
 
 /* Definition of sensor modes, i.e. what values will be return upon Wire transmit request event */
 enum eSensorMode { SENSOR_MODE_NONE = 0, SENSOR_MODE_MEASURE, SENSOR_MODE_SERIALNO };
+
+/* Definition of sensor flow mapping, i.e. which method to use in order to calculate flow from differential pressure */
+enum eSensorFlowMapping { SENSOR_MAP_NONE = 0, SENSOR_MAP_LIN, SENSOR_MAP_SQRT };
 
 /* define the address of the sensor on the I2C bus;
  * TODO/FIXME: decide address to be used via GPIO input pin during setup()
@@ -87,6 +90,7 @@ void loop()
     static float fPressure = 0.0f;
     static float fVolumeFlow = -40.0f;
     static uint16_t nTxWord = 0;
+    static eSensorFlowMapping eMapMode = SENSOR_MAP_LIN;
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, HIGH);
@@ -106,15 +110,15 @@ void loop()
     // Debug output the sensor's reading (conversion valie)
     debugPrint("Sensor value: ");
 
-    debugPrint(nConversionValue); // raw reading
-    debugPrint(" counts, ");
+//    debugPrint(nConversionValue); // raw reading
+//    debugPrint(" counts, ");
 
-    debugPrint( countsToMillivolts(nConversionValue) );
-    debugPrint(" mV, ");
+//    debugPrint( countsToMillivolts(nConversionValue) );
+//    debugPrint(" mV, ");
 
     fPressure = millivoltsToPressure( countsToMillivolts( nConversionValue ) );
-    debugPrint( fPressure );
-    debugPrint(" mmWater, ");
+//    debugPrint( fPressure );
+//    debugPrint(" mmWater, ");
 
 #ifdef MOCK_SENSOR_FLOW_VALUES
     fVolumeFlow = fVolumeFlow + 1.0f;
@@ -123,15 +127,15 @@ void loop()
         fVolumeFlow = -40.0f;
     }
 #else
-    fVolumeFlow = pressureToVolumeFlow( fPressure );
+    fVolumeFlow = pressureToVolumeFlow( fPressure, eMapMode );
 #endif
 
     debugPrint( fVolumeFlow );
-    debugPrint(" flow, ");
+    debugPrintln(" flow, ");
 
-    g_nTxWord = volumeFlowToTxWord( fVolumeFlow );
-    debugPrint( g_nTxWord );
-    debugPrintln(" tx");
+//    g_nTxWord = volumeFlowToTxWord( fVolumeFlow );
+//    debugPrint( g_nTxWord );
+//    debugPrintln(" tx");
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, LOW);
@@ -319,9 +323,22 @@ float millivoltsToPressure(float fMillivolts)
     return fPressure;
 }
 
-float pressureToVolumeFlow(float fPressure)
+float pressureToVolumeFlow(float fPressure, eSensorFlowMapping eMapMode)
 {
-    return fPressure;
+    float fFlow;
+
+    switch( eMapMode )
+    {
+        case SENSOR_MAP_LIN:
+            fFlow = fPressure;
+            break;
+        case SENSOR_MAP_NONE:
+        default:
+            fFlow = 0.0f;
+            break;
+    }
+
+    return fFlow;
 }
 
 uint16_t volumeFlowToTxWord(float fVolumeFlow)
