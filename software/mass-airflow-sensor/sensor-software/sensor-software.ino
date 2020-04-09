@@ -1,4 +1,5 @@
 #include <Wire.h>
+#include <EEPROM.h>
 #include "crc8.h"
 
 // Test setup:
@@ -8,6 +9,7 @@
 //     Analog input: A0
 //     Real-time supervision pin: A3
 //     Interrupt supervision pin: A2
+//   EEPROM is used to store sensor offset voltage for calibration
 
 /* Mapping of the analog input pin, define alias here */
 #define ANALOG_INPUT_PIN      (A0)
@@ -65,6 +67,17 @@ volatile eSensorMode g_eMode = SENSOR_MODE_NONE; /* sensor mode start with 'NONE
 
 volatile uint16_t g_nTxWord = 0;
 
+union eepromContent {
+    uint8_t raw[4];
+    struct {
+       float fVoltage;
+    };
+};
+
+float fOffsetVoltage = 44.9f; /* in milliVolts */
+
+union eepromContent g_eepromContent;
+
 void setup()
 {
     Serial.begin(230400);         // start serial for debug output
@@ -86,6 +99,21 @@ void setup()
     Serial.println("Built for NXP MPXV5004G sensor.");
 #endif
 
+    g_eepromContent.raw[0] = EEPROM.read(0x0);
+    g_eepromContent.raw[1] = EEPROM.read(0x1);
+    g_eepromContent.raw[2] = EEPROM.read(0x2);
+    g_eepromContent.raw[3] = EEPROM.read(0x3);
+
+// TODO/FIXME: allow voltage offset to be read from EEPROM where it is programmed once
+//    Serial.print("EEPROM values: raw ");
+//    Serial.print(g_eepromContent.raw[0]);
+//    Serial.print(g_eepromContent.raw[1]);
+//    Serial.print(g_eepromContent.raw[2]);
+//    Serial.print(g_eepromContent.raw[3]);
+//    Serial.print(", as float: ");
+//    Serial.print(g_eepromContent.fVoltage);
+//    Serial.println("");
+
 #ifdef DEBUG
     Serial.println("Debug mode active.");
 #else
@@ -96,6 +124,7 @@ void setup()
 void loop()
 {
     static int nConversionValue = 0;
+    static float fVoltage = 0.0f;
     static float fPressure = 0.0f;
     static float fVolumeFlow = -40.0f;
     static uint16_t nTxWord = 0;
@@ -122,12 +151,14 @@ void loop()
 //    debugPrint(nConversionValue); // raw reading
 //    debugPrint(" counts, ");
 
-//    debugPrint( countsToMillivolts(nConversionValue) );
-//    debugPrint(" mV, ");
+    fVoltage = countsToMillivolts(nConversionValue);
+    fVoltage -= fOffsetVoltage;
+    debugPrint( fVoltage );
+    debugPrint(" mV, ");
 
-    fPressure = millivoltsToPressure( countsToMillivolts( nConversionValue ) );
-//    debugPrint( fPressure );
-//    debugPrint(" mmWater, ");
+    fPressure = millivoltsToPressure( fVoltage );
+    debugPrint( fPressure );
+    debugPrint(" mmWater, ");
 
 #ifdef MOCK_SENSOR_FLOW_VALUES
     fVolumeFlow = fVolumeFlow + 1.0f;
@@ -333,7 +364,7 @@ float millivoltsToPressure(float fMillivolts)
 #endif
 
     // sanity check: no negative pressure value
-    fPressure = (fPressure < 0.0f) ? 0.0f : fPressure;
+    //fPressure = (fPressure < 0.0f) ? 0.0f : fPressure;
     
     return fPressure;
 }
@@ -341,12 +372,12 @@ float millivoltsToPressure(float fMillivolts)
 float pressureToVolumeFlow(float fPressure, eSensorFlowMapping eMapMode)
 {
     static float fFlow = 0.0f;
-    static const float fFlowOffset = 4.22194373f; /* subtract offset at zero flow */
+//    static const float fFlowOffset = 4.22194373f; /* subtract offset at zero flow */
 
     switch( eMapMode )
     {
         case SENSOR_MAP_LIN:
-            fFlow = (fPressure - fFlowOffset);
+            fFlow = fPressure;
             /* TODO/FIXME: still needs to be fixed */
             break;
         case SENSOR_MAP_NONE:

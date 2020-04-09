@@ -39,44 +39,7 @@
     #define SENSOR_LOOP_DELAY (SENSOR_QUERY_INTERVAL - (1u))
 #endif
 
-
 enum eBreathCyclePhase { BREATH_UNKNOWN, BREATH_INSPIRATION, BREATH_EXPIRATION };
-
-
-float filter(float fIn);
-
-/*
-FIR filter designed with
-http://t-filter.appspot.com
-
-sampling frequency: 100 Hz
-
-* 0 Hz - 8 Hz
-  gain = 1
-  desired ripple = 5 dB
-  actual ripple = 1.3331774107336987 dB
-
-* 30 Hz - 50 Hz
-  gain = 0
-  desired attenuation = -20 dB
-  actual attenuation = -29.769303038277595 dB
-
-*/
-
-#define FILTER_TAP_NUM 5
-
-/* FIR filter coefficients */
-const float g_fFilterCoeff[FILTER_TAP_NUM] = {
-    0.09297173361096804,
-    0.2703344310432933,
-    0.3499812215322376,
-    0.2703344310432933,
-    0.09297173361096804
-};
-
-/* Filter delay line */
-float g_fFilterInput[FILTER_TAP_NUM];
-
 
 /* define sensor instances with their addresses on the I2C bus */
 MassAirflowSensor g_sensor1(0x40);
@@ -99,8 +62,6 @@ void setup()
 #ifdef RT_SUPERVISION_PIN
     pinMode(RT_SUPERVISION_PIN, OUTPUT);
 #endif
-
-    resetFilter();
 
     debugPrintln("Finished setup.");
 
@@ -139,7 +100,6 @@ void loop()
     static float fFlow2 = 0.0f;
     static float fFlow2Corrected = 0.0f;
 //    static float fRatio = 0.0f;
-//    static float fFlowFiltered = 0.0f;
     static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
     static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
     static float fAccu1 = 0.0f;
@@ -323,32 +283,4 @@ void loop()
 
     delay(SENSOR_LOOP_DELAY);
 }
-
-void resetFilter()
-{
-    for(uint8_t i=0; i < FILTER_TAP_NUM; i++)
-    {
-        g_fFilterInput[i] = 0.0f;
-    }
-}
-
-float filter(float fIn)
-{
-    float fOut = 0.0f;
-
-    for(uint8_t i = FILTER_TAP_NUM-1; i > 0; i--)
-    {
-        g_fFilterInput[i] = g_fFilterInput[i-1]; 
-    }
-    g_fFilterInput[0] = fIn;
-
-    /* filter kernel: multiply accumulate */
-    for(uint8_t i = 0; i < FILTER_TAP_NUM; i++)
-    {
-        fOut += (g_fFilterCoeff[i] * g_fFilterInput[i]);
-    }
-
-    return fOut;
-}
-
 
