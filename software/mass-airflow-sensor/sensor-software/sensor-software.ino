@@ -20,6 +20,8 @@
 /* Mapping of the digital output pin for interrupt supervision, define alias here */
 #define INT_SUPERVISION_PIN   (A2)
 
+#define USE_STATUS_LED
+
 /* Select differential pressure sensor */
 #define SENSOR_DP_NXP_MPXV5004G
 //#define SENSOR_DP_NXP_MP3V5004G
@@ -29,12 +31,13 @@
 //#define SENSOR_GEOMETRY_VENTURI
 
 /* Define sensor offset voltage during idle, when there's no differential pressure */
-float fOffsetVoltage = -38.1f; /* in milliVolts */
+//float fOffsetVoltage = -38.1f; /* in milliVolts */
+float g_fOffsetVoltage = 0.0f; /* in milliVolts */
 
 /* Disallow negative differential pressure values, i.e. only flow in one direction */
 #define DISALLOW_NEGATIVE_VALUES
 
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
@@ -83,6 +86,10 @@ union eepromContent {
 union eepromContent g_eepromContent;
 
 
+void eepromWriteOffsetVoltage(float fOffsetVoltage);
+float eepromReadOffsetVoltage(void);
+
+
 void setup()
 {
     Serial.begin(230400);         // start serial for debug output
@@ -90,6 +97,11 @@ void setup()
     Wire.begin(g_nDeviceAddress); // join i2c bus with address <g_nDeviceAddress>
     Wire.onReceive(receiveEvent); // register event handler for Rx
     Wire.onRequest(transmitRequestEvent); // register event handler for Tx request
+
+#ifdef USE_STATUS_LED
+    /* use LED_BUILTIN to signal if sensor is in measuring mode */
+    pinMode(LED_BUILTIN, OUTPUT);
+#endif
 
 #ifdef RT_SUPERVISION_PIN
     pinMode(RT_SUPERVISION_PIN, OUTPUT);
@@ -114,20 +126,11 @@ void setup()
     #error Selected sensor geometry is not supported.
 #endif
 
-// TODO/FIXME: allow voltage offset to be read from EEPROM where it is programmed once
-//    g_eepromContent.raw[0] = EEPROM.read(0x0);
-//    g_eepromContent.raw[1] = EEPROM.read(0x1);
-//    g_eepromContent.raw[2] = EEPROM.read(0x2);
-//    g_eepromContent.raw[3] = EEPROM.read(0x3);
-
-//    Serial.print("EEPROM values: raw ");
-//    Serial.print(g_eepromContent.raw[0]);
-//    Serial.print(g_eepromContent.raw[1]);
-//    Serial.print(g_eepromContent.raw[2]);
-//    Serial.print(g_eepromContent.raw[3]);
-//    Serial.print(", as float: ");
-//    Serial.print(g_eepromContent.fVoltage);
-//    Serial.println("");
+    /* allow voltage offset to be read from EEPROM where it is programmed once;
+     * another way would be to calculate a mean "idle" offset voltage at startup
+     */
+    //eepromWriteOffsetVoltage( 45.0f ); /* program it once, then comment this line out */
+    g_fOffsetVoltage = eepromReadOffsetVoltage();
 
 #ifdef DEBUG
     Serial.println("Debug mode active.");
@@ -153,14 +156,20 @@ void loop()
     if( SENSOR_MODE_MEASURE == g_eMode )
     {
         debugPrint("[*] "); /* in measuring mode */
+#ifdef USE_STATUS_LED
+        digitalWrite(LED_BUILTIN, HIGH);
+#endif
     }
     else
     {
         debugPrint("[ ] "); /* not in measuring mode */
+#ifdef USE_STATUS_LED
+        digitalWrite(LED_BUILTIN, LOW);
+#endif
     }
 
     fVoltage = countsToMillivolts(nConversionValue);
-    fVoltage -= fOffsetVoltage;
+    fVoltage -= g_fOffsetVoltage;
     fPressure = millivoltsToPressure( fVoltage );
     fVolumeFlow = pressureToVolumeFlow( fPressure );
 
@@ -169,7 +178,7 @@ void loop()
 
 
     // Debug output the sensor's reading (conversion valie)
-//    debugPrint("Sensor value: ");
+    debugPrint("Sensor value: ");
 //    debugPrint(nConversionValue); // raw reading
 //    debugPrint(" counts, ");
 //    debugPrint( fVoltage );
@@ -416,5 +425,57 @@ uint16_t volumeFlowToTxWord(float fVolumeFlow)
     static const float fScaleFactor = 140.0f;
 
     return (uint16_t)(fVolumeFlow * fScaleFactor + fOffsetFlow);
+}
+
+void eepromWriteOffsetVoltage(float fOffsetVoltage)
+{
+    g_eepromContent.fVoltage = fOffsetVoltage;
+
+    Serial.print("EEPROM values to be written: raw ");
+    Serial.print(g_eepromContent.raw[0]);
+    Serial.print(", ");
+    Serial.print(g_eepromContent.raw[1]);
+    Serial.print(", ");
+    Serial.print(g_eepromContent.raw[2]);
+    Serial.print(", ");
+    Serial.print(g_eepromContent.raw[3]);
+    Serial.print(", as float: ");
+    Serial.print(g_eepromContent.fVoltage);
+    Serial.println("");
+
+    EEPROM.write(0x0, g_eepromContent.raw[0]);
+    EEPROM.write(0x1, g_eepromContent.raw[1]);
+    EEPROM.write(0x2, g_eepromContent.raw[2]);
+    EEPROM.write(0x3, g_eepromContent.raw[3]);
+}
+
+float eepromReadOffsetVoltage(void)
+{
+    g_eepromContent.raw[0] = EEPROM.read(0x0);
+    g_eepromContent.raw[1] = EEPROM.read(0x1);
+    g_eepromContent.raw[2] = EEPROM.read(0x2);
+    g_eepromContent.raw[3] = EEPROM.read(0x3);
+
+    Serial.print("Values read from EEPROM: raw ");
+    Serial.print(g_eepromContent.raw[0]);
+    Serial.print(", ");
+    Serial.print(g_eepromContent.raw[1]);
+    Serial.print(", ");
+    Serial.print(g_eepromContent.raw[2]);
+    Serial.print(", ");
+    Serial.print(g_eepromContent.raw[3]);
+    Serial.print(", as float: ");
+    Serial.print(g_eepromContent.fVoltage);
+    Serial.println("");
+
+    if( 0xFF == g_eepromContent.raw[0] && 0xFF == g_eepromContent.raw[1] &&
+        0xFF == g_eepromContent.raw[1] && 0xFF == g_eepromContent.raw[2] )
+    {
+        return 0.0f;
+    }
+    else
+    {
+        return g_eepromContent.fVoltage;
+    }
 }
 
