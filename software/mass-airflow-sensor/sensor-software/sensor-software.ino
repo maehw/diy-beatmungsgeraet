@@ -23,8 +23,8 @@
 #define USE_STATUS_LED
 
 /* Select differential pressure sensor */
-#define SENSOR_DP_NXP_MPXV5004G
-//#define SENSOR_DP_NXP_MP3V5004G
+#define SENSOR_DP_NXP_MPXV5004DP
+//#define SENSOR_DP_NXP_MP3V5004DP
 
 /* Select sensor geometry, relevant for conversion to volume flow */
 //#define SENSOR_GEOMETRY_GRID
@@ -36,7 +36,7 @@ float g_fOffsetVoltage = 0.0f; /* in milliVolts */
 /* Disallow negative differential pressure values, i.e. only flow in one direction */
 #define DISALLOW_NEGATIVE_VALUES
 
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
@@ -109,10 +109,10 @@ void setup()
     pinMode(INT_SUPERVISION_PIN, OUTPUT);
 #endif
 
-#ifdef SENSOR_DP_NXP_MP3V5004G
+#ifdef SENSOR_DP_NXP_MP3V5004DP
     Serial.println("Built for NXP MP3V5004G sensor.");
-#elif defined( SENSOR_DP_NXP_MPXV5004G )
-    Serial.println("Built for NXP MPXV5004G sensor.");
+#elif defined( SENSOR_DP_NXP_MPXV5004DP )
+    Serial.println("Built for NXP MPXV5004DP sensor.");
 #else
     #error Selected sensor is not supported.
 #endif
@@ -128,7 +128,7 @@ void setup()
     /* allow voltage offset to be read from EEPROM where it is programmed once;
      * another way would be to calculate a mean "idle" offset voltage at startup
      */
-    eepromWriteOffsetVoltage( -38.1f ); /* program it once, then comment this line out */
+    //eepromWriteOffsetVoltage( -38.1f ); /* program it once, then comment this line out */
     g_fOffsetVoltage = eepromReadOffsetVoltage();
 
 #ifdef DEBUG
@@ -353,16 +353,16 @@ float countsToMillivolts(int nCounts)
 
 float millivoltsToPressure(float fMillivolts)
 {
-#ifdef SENSOR_DP_NXP_MP3V5004G
-    // based on MP3V5004G datasheet:
+#ifdef SENSOR_DP_NXP_MP3V5004DP
+    // based on MP3V5004DP datasheet:
     // for now, assume a linear transfer function of the sensor,
     // e.g. V_out = 0.6 V/kPa * dP + 0.6 V
     //         dP = (V_out - 0.6 V) / 0.6 V/kPa 
     //            = (V_out - 0.6 V) * 1.667 kPa/V
     //            = (V_out - 600 mV) * (1.667*100 mmH2O) / 1000 mV // 1 kPa ~ approx. 100 mmH2O
     float fPressure = (fMillivolts - 600.0f) * 0.1666666667f;
-#elif defined( SENSOR_DP_NXP_MPXV5004G )
-    // based on MPXV5004G datasheet:
+#elif defined( SENSOR_DP_NXP_MPXV5004DP )
+    // based on MPXV5004DP datasheet:
     // for now, assume a linear transfer function of the sensor,
     // e.g. V_out = 1.0 V/kPa * dP + 1.0 V
     //         dP = (V_out - 1.0 V) / 1.0 V/kPa 
