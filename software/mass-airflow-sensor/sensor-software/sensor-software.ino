@@ -27,17 +27,16 @@
 //#define SENSOR_DP_NXP_MP3V5004G
 
 /* Select sensor geometry, relevant for conversion to volume flow */
-#define SENSOR_GEOMETRY_GRID
-//#define SENSOR_GEOMETRY_VENTURI
+//#define SENSOR_GEOMETRY_GRID
+#define SENSOR_GEOMETRY_VENTURI
 
 /* Define sensor offset voltage during idle, when there's no differential pressure */
-//float fOffsetVoltage = -38.1f; /* in milliVolts */
 float g_fOffsetVoltage = 0.0f; /* in milliVolts */
 
 /* Disallow negative differential pressure values, i.e. only flow in one direction */
 #define DISALLOW_NEGATIVE_VALUES
 
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
@@ -69,7 +68,7 @@ enum eSensorMode { SENSOR_MODE_NONE = 0, SENSOR_MODE_MEASURE, SENSOR_MODE_SERIAL
 /* define the address of the sensor on the I2C bus;
  * TODO/FIXME: decide address to be used via GPIO input pin during setup()
  */
-uint8_t g_nDeviceAddress = 0x44;
+uint8_t g_nDeviceAddress = 0x42;
 
 /* Initialize global variables */
 //volatile int g_nConversionValue = 0; /* digital value for sensor's analog input */
@@ -129,7 +128,7 @@ void setup()
     /* allow voltage offset to be read from EEPROM where it is programmed once;
      * another way would be to calculate a mean "idle" offset voltage at startup
      */
-    //eepromWriteOffsetVoltage( 45.0f ); /* program it once, then comment this line out */
+    eepromWriteOffsetVoltage( -38.1f ); /* program it once, then comment this line out */
     g_fOffsetVoltage = eepromReadOffsetVoltage();
 
 #ifdef DEBUG
@@ -137,6 +136,8 @@ void setup()
 #else
     Serial.println("Debug mode inactive, no more output on serial.");
 #endif
+
+    delay(500);
 }
 
 void loop()
@@ -181,8 +182,8 @@ void loop()
     debugPrint("Sensor value: ");
 //    debugPrint(nConversionValue); // raw reading
 //    debugPrint(" counts, ");
-//    debugPrint( fVoltage );
-//    debugPrint(" mV, ");
+    debugPrint( fVoltage );
+    debugPrint(" mV, ");
     debugPrint( fPressure );
     debugPrint(" mmWater, ");
     debugPrint( fVolumeFlow );

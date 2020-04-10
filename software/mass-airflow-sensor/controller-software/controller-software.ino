@@ -44,10 +44,10 @@
 
 enum eBreathCyclePhase { BREATH_UNKNOWN, BREATH_INSPIRATION, BREATH_EXPIRATION };
 
-#define NUM_SENSORS   (2u)
+#define NUM_SENSORS   (3u)
 
 /* define sensor instances with their addresses on the I2C bus */
-MassAirflowSensor g_sensor[NUM_SENSORS] = { MassAirflowSensor(0x40), MassAirflowSensor(0x44) };
+MassAirflowSensor g_sensor[NUM_SENSORS] = { MassAirflowSensor(0x40), MassAirflowSensor(0x44), MassAirflowSensor(0x42) };
 
 /* define global variables required for the measurement of volume flow for every sensor */
 bool g_bSendMeasCommand[NUM_SENSORS];
@@ -116,11 +116,14 @@ void setup()
                     break;
                 case MassAirflowSensor::SENSOR_FAIL:
                 default:
-                    debugPrint("[ERROR] Generic failure.");
+                    debugPrint("[ERROR] Generic failure. Check connectivity!");
                     break;
             }
+            delay(500);
             for(;;); /* halt on error */
         }
+        delay(500);
+
     }
 
     debugPrintln("Finished setup().");
@@ -187,6 +190,8 @@ void loop()
     debugPrint( g_fFlow[0] );
     debugPrint(", Second: ");
     debugPrint( g_fFlow[1] );
+    debugPrint(", Third: ");
+    debugPrint( g_fFlow[2] );
     
     debugPrintln("");
 #else
