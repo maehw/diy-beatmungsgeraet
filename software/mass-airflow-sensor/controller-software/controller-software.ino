@@ -44,10 +44,19 @@
 
 enum eBreathCyclePhase { BREATH_UNKNOWN, BREATH_INSPIRATION, BREATH_EXPIRATION };
 
+#define NUM_SENSORS   (2u)
+
 /* define sensor instances with their addresses on the I2C bus */
-MassAirflowSensor g_sensor1(0x40);
-//MassAirflowSensor g_sensor2(0x42);
-MassAirflowSensor g_sensor2(0x44);
+MassAirflowSensor g_sensor[NUM_SENSORS] = { MassAirflowSensor(0x40), MassAirflowSensor(0x44) };
+
+/* define global variables required for the measurement of volume flow for every sensor */
+bool g_bSendMeasCommand[NUM_SENSORS];
+MassAirflowSensor::eRetVal g_eStatus[NUM_SENSORS];
+float g_fFlow[NUM_SENSORS]; /* Volume flow measurement related variables */
+
+#ifdef DEBUG
+    uint16_t g_nRaw[NUM_SENSORS];
+#endif
 
 void setup()
 {
@@ -65,26 +74,53 @@ void setup()
 
     debugPrintln("Finished configuration. Reading serial numbers...");
 
-    if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor1.readSerialNumber(&nSensorSerialNo) )
+    /* Initialize array values to handle multiple sensors */
+    for( uint8_t nSensorIdx = 0; nSensorIdx < NUM_SENSORS; nSensorIdx++ )
     {
-        debugPrint("Read serial number of sensor 1: ");
-        debugPrint(nSensorSerialNo, HEX);
-        debugPrintln("");
-    }
-    else
-    {
-        debugPrintln("[ERROR] Failed to read serial number of sensor 1.");
+        g_bSendMeasCommand[nSensorIdx] = true;
+        g_eStatus[nSensorIdx] = MassAirflowSensor::SENSOR_FAIL;
+        g_fFlow[nSensorIdx] = 0.0f;
+#ifdef DEBUG
+        g_nRaw[nSensorIdx] = 0;
+#endif
     }
 
-    if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor2.readSerialNumber(&nSensorSerialNo) )
+    for( uint8_t nSensorIdx = 0; nSensorIdx < NUM_SENSORS; nSensorIdx++ )
     {
-        debugPrint("Read serial number of sensor 2: ");
-        debugPrint(nSensorSerialNo, HEX);
-        debugPrintln("");
-    }
-    else
-    {
-        debugPrintln("[ERROR] Failed to read serial number of sensor 2.");
+        if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor[nSensorIdx].readSerialNumber(&nSensorSerialNo) )
+        {
+            debugPrint("[INFO] Read serial number of sensor #");
+            debugPrint(nSensorIdx+1);
+            debugPrint(": ");
+            debugPrint(nSensorSerialNo, HEX);
+            debugPrintln(".");
+        }
+        else
+        {
+            debugPrint("[ERROR] Failed to read serial number of sensor #");
+            debugPrint(nSensorIdx+1);
+            debugPrintln(".");
+            switch( g_eStatus[nSensorIdx] )
+            {
+                case MassAirflowSensor::SENSOR_CRC_ERROR:
+                    debugPrint("[ERROR] CRC error.");
+                    break;
+                case MassAirflowSensor::SENSOR_CMD_ERROR:
+                    debugPrint("[ERROR] Command error.");
+                    break;
+                case MassAirflowSensor::SENSOR_RXCNT_ERROR:
+                    debugPrint("[ERROR] RX count error.");
+                    break;
+                case MassAirflowSensor::SENSOR_PARAM_ERROR:
+                    debugPrint("[ERROR] Parameter error.");
+                    break;
+                case MassAirflowSensor::SENSOR_FAIL:
+                default:
+                    debugPrint("[ERROR] Generic failure.");
+                    break;
+            }
+            for(;;); /* halt on error */
+        }
     }
 
     debugPrintln("Finished setup().");
@@ -92,18 +128,6 @@ void setup()
 
 void loop()
 {
-    /* Volume flow measurement related variables */
-    static MassAirflowSensor::eRetVal eStatus1 = MassAirflowSensor::SENSOR_FAIL;
-    static MassAirflowSensor::eRetVal eStatus2 = MassAirflowSensor::SENSOR_FAIL;
-    static bool bSendMeasCommand1 = true;
-    static bool bSendMeasCommand2 = true;
-    static float fFlow1 = 0.0f;
-    static float fFlow2 = 0.0f;
-#ifdef DEBUG
-    static uint16_t nRaw1 = 0;
-    static uint16_t nRaw2 = 0;
-#endif
-
     /* Breath cycle / accumulated volume related variables */
     static eBreathCyclePhase ePhase = BREATH_UNKNOWN;
     static eBreathCyclePhase ePhaseOld = BREATH_UNKNOWN;
@@ -116,65 +140,53 @@ void loop()
     digitalWrite(RT_SUPERVISION_PIN, HIGH);
 #endif
 
+    for( uint8_t nSensorIdx = 0; nSensorIdx < NUM_SENSORS; nSensorIdx++ )
+    {
 #ifdef DEBUG
-    eStatus1 = g_sensor1.readMeasurement(&fFlow1, &nRaw1, bSendMeasCommand1);
-    eStatus2 = g_sensor2.readMeasurement(&fFlow2, &nRaw2, bSendMeasCommand2);
+        g_eStatus[nSensorIdx] = g_sensor[nSensorIdx].readMeasurement(&g_fFlow[nSensorIdx], &g_nRaw[nSensorIdx], g_bSendMeasCommand[nSensorIdx]);
 #else
-    eStatus1 = g_sensor1.readMeasurement(&fFlow1, NULL, bSendMeasCommand1);
-    eStatus2 = g_sensor2.readMeasurement(&fFlow2, NULL, bSendMeasCommand2);
+        g_eStatus[nSensorIdx] = g_sensor[nSensorIdx].readMeasurement(&g_fFlow[nSensorIdx], NULL, g_bSendMeasCommand[nSensorIdx]);
 #endif
 
-    if( MassAirflowSensor::SENSOR_SUCCESS == eStatus1 )
-    {
-#ifdef DEBUG_PLOT
-        debugPrint("[*]");
-#endif
-        bSendMeasCommand1 = false; /* do not resend measurement command after first success */
-    }
-#ifdef DEBUG_PLOT
-    else
-    {
-        debugPrint("[ ]");
-    }
-#endif
-
-    if( MassAirflowSensor::SENSOR_SUCCESS == eStatus2 )
-    {
-#ifdef DEBUG_PLOT
-        debugPrint("[*]");
-#endif
-        bSendMeasCommand2 = false; /* do not resend measurement command after first success */
-    }
-#ifdef DEBUG_PLOT
-    else
-    {
-        switch( eStatus2 )
+        if( MassAirflowSensor::SENSOR_SUCCESS == g_eStatus[nSensorIdx] )
         {
-            case MassAirflowSensor::SENSOR_CRC_ERROR:
-                debugPrint("[C]");
-                break;
-            case MassAirflowSensor::SENSOR_CMD_ERROR:
-                debugPrint("[M]");
-                break;
-            case MassAirflowSensor::SENSOR_RXCNT_ERROR:
-                debugPrint("[R]");
-                break;
-            case MassAirflowSensor::SENSOR_PARAM_ERROR:
-                debugPrint("[P]");
-                break;
-            case MassAirflowSensor::SENSOR_FAIL:
-            default:
-                debugPrint("[E]");
-                break;
-        }
-    }
+#ifdef DEBUG_PLOT
+            debugPrint("[*]");
 #endif
+            g_bSendMeasCommand[nSensorIdx] = false; /* do not resend measurement command after first success */
+        }
+#ifdef DEBUG_PLOT
+        else
+        {
+            switch( g_eStatus[nSensorIdx] )
+            {
+                case MassAirflowSensor::SENSOR_CRC_ERROR:
+                    debugPrint("[C]");
+                    break;
+                case MassAirflowSensor::SENSOR_CMD_ERROR:
+                    debugPrint("[M]");
+                    break;
+                case MassAirflowSensor::SENSOR_RXCNT_ERROR:
+                    debugPrint("[R]");
+                    break;
+                case MassAirflowSensor::SENSOR_PARAM_ERROR:
+                    debugPrint("[P]");
+                    break;
+                case MassAirflowSensor::SENSOR_FAIL:
+                default:
+                    debugPrint("[E]");
+                    break;
+            }
+            //g_bSendMeasCommand[nSensorIdx] = true; /* do resend measurement command due to error condition */
+        }
+#endif
+    }
 
 #ifdef DEBUG_PLOT
     debugPrint(" First: ");
-    debugPrint( fFlow1 );
+    debugPrint( g_fFlow[0] );
     debugPrint(", Second: ");
-    debugPrint( fFlow2 );
+    debugPrint( g_fFlow[1] );
     
     debugPrintln("");
 #else
