@@ -17,6 +17,7 @@ public:
     MassAirflowSensor(uint8_t nDeviceAddress);
     eRetVal readMeasurement(float* pfFlow, uint16_t* pnRaw, bool bSendMeasCmd);
     eRetVal readSerialNumber(int32_t* pnSerialNo);
+    eRetVal sendSoftResetCmd(void);
 
 private:
     eRetVal sendStartMeasurementCmd(void);

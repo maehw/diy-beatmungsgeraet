@@ -145,10 +145,18 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readSerialNumber(int32_t* pnSerial
 
 MassAirflowSensor::eRetVal MassAirflowSensor::sendReadSerialNumberCmd(void)
 {
+#ifdef DEBUG
+    debugPrintln("sendReadSerialNumberCmd() start");
+#endif
+
     Wire.beginTransmission(m_nDeviceAddress); // transmit to device
     Wire.write(0x31);
     Wire.write(0xAE);
     Wire.endTransmission(); // stop transmitting
+
+#ifdef DEBUG
+    debugPrintln("sendReadSerialNumberCmd() end");
+#endif
 
     return SENSOR_SUCCESS;
 }
@@ -199,5 +207,23 @@ crc_t MassAirflowSensor::calcCrc(const unsigned char *pData, size_t nDataLen)
     nCrc = crc_finalize(nCrc);
 
     return nCrc;
+}
+
+MassAirflowSensor::eRetVal MassAirflowSensor::sendSoftResetCmd(void)
+{
+#ifdef DEBUG
+    debugPrintln("sendSoftResetCmd() start");
+#endif
+
+    Wire.beginTransmission(m_nDeviceAddress); // transmit to device
+    Wire.write(0x20);
+    Wire.write(0x00);
+    Wire.endTransmission(); // stop transmitting
+
+#ifdef DEBUG
+    debugPrintln("sendSoftResetCmd() end");
+#endif
+
+    return SENSOR_SUCCESS;
 }
 
