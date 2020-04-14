@@ -110,8 +110,13 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readMeasurementValue(uint16_t* pnV
 
 MassAirflowSensor::eRetVal MassAirflowSensor::convertToFlow(uint16_t* pnVal, float* pfFlow)
 {
+//  For the Sensirion SFM3000:
     static const uint16_t fOffsetFlow = 32000.0f;
     static const float fScaleFactor = 140.0f;
+
+//  For the Sensirion SFM3200-AW:
+//    static const uint16_t fOffsetFlow = 32768.0f;
+//    static const float fScaleFactor = 120.0f;
 
     if( NULL == pnVal || NULL == pfFlow )
     {
