@@ -44,10 +44,10 @@
 
 enum eBreathCyclePhase { BREATH_UNKNOWN, BREATH_INSPIRATION, BREATH_EXPIRATION };
 
-#define NUM_SENSORS   (3u)
+#define NUM_SENSORS   (1u)
 
 /* define sensor instances with their addresses on the I2C bus */
-MassAirflowSensor g_sensor[NUM_SENSORS] = { MassAirflowSensor(0x40), MassAirflowSensor(0x44), MassAirflowSensor(0x42) };
+MassAirflowSensor g_sensor[NUM_SENSORS] = { MassAirflowSensor(0x40) }; //, MassAirflowSensor(0x44), MassAirflowSensor(0x42) };
 
 /* define global variables required for the measurement of volume flow for every sensor */
 bool g_bSendMeasCommand[NUM_SENSORS];
@@ -87,6 +87,18 @@ void setup()
 
     for( uint8_t nSensorIdx = 0; nSensorIdx < NUM_SENSORS; nSensorIdx++ )
     {
+        if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor[nSensorIdx].sendSoftResetCmd() )
+        {
+            debugPrint("[INFO] Sent soft reset command to sensor #");
+            debugPrint(nSensorIdx+1);
+            debugPrintln(".");
+        }
+        else
+        {
+            debugPrint("[ERROR] Failed to send soft reset command to sensor #");
+        }
+        delay(90); /* soft reset time is 80 ms */
+
         if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor[nSensorIdx].readSerialNumber(&nSensorSerialNo) )
         {
             debugPrint("[INFO] Read serial number of sensor #");
