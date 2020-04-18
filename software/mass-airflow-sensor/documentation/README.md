@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/logo.png">
+  <img src="../../../images/logo.png">
 </p>
 
 # DIY-Beatmungsgerät Mass Air Flow Sensor
