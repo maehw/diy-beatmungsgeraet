@@ -18,8 +18,9 @@ The hardware setup consists of replaceable components:
   - a DIY meter, consisting of a differential pressure sensor + 3D printed tube + hardware to read values from the sensor (e.g. an Arduino Nano) and provide them over a digital interface.
 
 <p align="center">
-  <img src="./images/flow-meter-sketch.png" style="  width: 70%; height: auto;">
+  <img src="./images/flow-meter-sketch_40p.png">
 </p>
+
 
 The digital interface between sensors/meters and sensor controller is a simple I2C interface, i.e. the signals SCL (serial clock), SDA (serial data) and a common GND is required. The two I2C lines should also have a pull-up resistor. In the setup shown above, the pull-up resistors are pulled up by the controller's VCC of 5 V.
 
