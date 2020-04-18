@@ -42,8 +42,15 @@ Our prototype for a DIY mass air flow meter consists of:
    The prototype is based on an Arduino Nano. 
 
 <p align="center">
-  <img src="./images/tube.png">
+  <img src="./images/tube.png"><br />
+    3D tube outline
 </p>
+
+<p align="center">
+  <img src="./images/sensor-tube-types.png"><br />
+    Left: "Grid type"; right: "Venturi type"
+</p>
+
 
 
 ## DIY mass air flow meter - sensor code
