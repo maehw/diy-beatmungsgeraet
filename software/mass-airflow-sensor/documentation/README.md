@@ -81,6 +81,13 @@ Additional features:
 - Read the serial numbers from the sensors.
 - Perform soft reset of the sensors.
 - Provide mechanism to check real-time requirements via an additional GPIO pin (for external timing measurements with an oscilloscope or logic analyzer).
+- Debug the hardware setup by analyzing the return codes of the sensor library.
+- As multiple sensors/meters are supported, it can be used to compare DIY solutions with ready-made reference sensors, i.e. support of verification.
+- Detect breath cycles by analyzing the volume flow over time (integrate volume flow to calculate absolute volume for inspiration/expiration).
+  **Disclaimer:** This project is not intended to be used in a medical device!
 
 The source code can be found [in this subdirectory of this repository](../controller-software).
 
+<p align="center">
+  <img src="./images/multiple-sensors.png">
+</p>
