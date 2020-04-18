@@ -100,6 +100,7 @@ We've added a high-level logic analyzer (also known as decoder) which allows to 
 <p align="center">
   <img src="./images/high-level-logic-analyzer-decoder.png">
 </p>
+It is based on the Saleae Logic2 application which uses their logic analyzer traces/dumps.
 
 The source code can be found [in this subdirectory of this repository](../sensor-decoder).
 
