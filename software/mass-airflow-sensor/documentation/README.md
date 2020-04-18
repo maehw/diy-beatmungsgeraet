@@ -91,3 +91,16 @@ The source code can be found [in this subdirectory of this repository](../contro
 <p align="center">
   <img src="./images/multiple-sensors.png">
 </p>
+
+
+## High-level logic analyzer/decoder
+
+We've added a high-level logic analyzer (also known as decoder) which allows to analyze the I2C protocol being used by the flow meters (commands and data between the meter and its controller):
+
+<p align="center">
+  <img src="./images/high-level-logic-analyzer-decoder.png">
+</p>
+
+The source code can be found [in this subdirectory of this repository](../sensor-decoder).
+
+Note: The analyzer is still work in progress. It might be extended to support verification of real-time requirements.
