@@ -46,3 +46,23 @@ Our prototype for a DIY mass air flow meter consists of:
 </p>
 
 
+## DIY mass air flow meter - sensor code
+
+The sensor code is used to:
+
+- Cyclically read the analog input (i.e. sampling).
+- Convert the measured voltage which represents the differential pressure to volume flow.
+  This contains internal calculation of the volume flow value or mapping via a look-up table.
+- Provide the measurement via the I2C digital interface for readout.
+
+Additional features:
+
+- Provide the compatible I2C digital interface for readout of serial number.
+- CRC calculation for the data packets to be interface compatible.
+- Offset voltage calibration via internal EEPROM at startup.
+- Verification of real-time conditions via additional GPIO pin (for external timing measurements with an oscilloscope or logic analyzer).
+
+The source code can be found [in this repository](../sensor-software).
+
+
+
