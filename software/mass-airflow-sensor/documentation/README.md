@@ -26,3 +26,24 @@ The digital interface between sensors/meters and sensor controller is a simple I
 
 The hardware setup is based on Arduino hardware, but in general other hardware with an I2C interface, a generic I2C library and a C++ compiler can theoretically be used, too.
 
+
+
+## DIY mass air flow meter
+
+Our prototype for a DIY mass air flow meter consists of:
+
+1. **a 3D printed tube:**
+   Currently two designs are available: the "Grid type" and the "Venturi type"); the model files are available within this repository.
+
+2. **an analog differential pressure sensor:**
+   The current prototype uses a NXP MPXV5004DP (for 0 to 3.92 kPa). It's an 8-pin chip but uses only power supply (VCC + GND) and provides a measurement via its analog output V_OUT. The 3D models of the tube are designed to fit the sensor in middle of the tube.
+
+3.  **a microcontroller board** used to sample the analog values and provide them via a compatible digital interface (I2C):
+
+   The prototype is based on an Arduino Nano. 
+
+<p align="center">
+  <img src="./images/tube.png">
+</p>
+
+
