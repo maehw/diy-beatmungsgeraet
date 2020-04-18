@@ -60,9 +60,27 @@ Additional features:
 - Provide the compatible I2C digital interface for readout of serial number.
 - CRC calculation for the data packets to be interface compatible.
 - Offset voltage calibration via internal EEPROM at startup.
-- Verification of real-time conditions via additional GPIO pin (for external timing measurements with an oscilloscope or logic analyzer).
+- Verification of real-time conditions via an additional GPIO pin (for external timing measurements with an oscilloscope or logic analyzer).
 
-The source code can be found [in this repository](../sensor-software).
+The source code can be found [in this subdirectory of this repository](../sensor-software).
 
 
+
+## Mass air flow meter - controller code
+
+The sensor code is used to:
+
+- Manage one or several sensor instances with different I2C addresses.
+- Set the sensors into measuring mode.
+- Cyclically read flow meter values from the I2C bus and convert them to floating point values in standard liters per minute.
+- Provide the data via serial output (or other interface, e.g. store them in a data lake, etc.), so that they can be plotted/displayed or used by another higher-level component or implementation to control/monitor a ventilator.
+  **Disclaimer:** This project is not intended to be used in a medical device!
+
+Additional features:
+
+- Read the serial numbers from the sensors.
+- Perform soft reset of the sensors.
+- Provide mechanism to check real-time requirements via an additional GPIO pin (for external timing measurements with an oscilloscope or logic analyzer).
+
+The source code can be found [in this subdirectory of this repository](../controller-software).
 
