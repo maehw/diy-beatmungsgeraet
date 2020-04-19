@@ -135,3 +135,19 @@ It is based on the Saleae Logic2 application which uses their logic analyzer tra
 The source code can be found [in this subdirectory of this repository](../sensor-decoder).
 
 Note: The analyzer is still work in progress. It might be extended to support verification of real-time requirements.
+
+
+
+# References & ressources
+
+## Similar projects
+
+* [Robert L. Read](https://twitter.com/RobertLeeRead) hast compiled a [spreadsheet](https://docs.google.com/spreadsheets/d/1inYw5H4RiL0AC_J9vPWzJxXCdlkMLPBRdPgEVKF8DZw/edit#gid=1022772303) of open source ventilator projects and modules such as mass air flow sensors
+* "Freeflow flow sensor" on [hackaday.io](https://hackaday.io/project/170928-freeflow-flow-sensor) as well as on [github](https://github.com/sglow/freeflow)
+* "VISP - Ventilator Inline Sensor Package" on [hackaday.io](https://hackaday.io/project/170622-visp-ventilator-inline-sensor-package)
+* "VentMon - Inline Ventilator Test Fixture and Monitor" on [github](https://github.com/PubInv/ventmon-ventilator-inline-test-monitor)
+
+## Flow measurement basics
+
+* [Sensirion Application Note for SDP600 and SDP1000 Series: Measuring Flow in a Bypass Configuration](https://www.sos.sk/a_info/resource/c/sensirion/SDPxxx_Bypass_Configuration.pdf)
+
