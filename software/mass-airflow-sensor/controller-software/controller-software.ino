@@ -44,10 +44,10 @@
 
 enum eBreathCyclePhase { BREATH_UNKNOWN, BREATH_INSPIRATION, BREATH_EXPIRATION };
 
-#define NUM_SENSORS   (1u)
+#define NUM_SENSORS   (2u)
 
 /* define sensor instances with their addresses on the I2C bus */
-MassAirflowSensor g_sensor[NUM_SENSORS] = { MassAirflowSensor(0x40) }; //, MassAirflowSensor(0x44), MassAirflowSensor(0x42) };
+MassAirflowSensor g_sensor[NUM_SENSORS] = { MassAirflowSensor(0x40), MassAirflowSensor(0x42) }; //, MassAirflowSensor(0x44) };
 
 /* define global variables required for the measurement of volume flow for every sensor */
 bool g_bSendMeasCommand[NUM_SENSORS];
@@ -61,6 +61,8 @@ float g_fFlow[NUM_SENSORS]; /* Volume flow measurement related variables */
 void setup()
 {
     uint32_t nSensorSerialNo = 0xBADC0FFE;
+    uint8_t nRetryCount = 3;
+    bool bInitSuccess = false;
 
     delay(3000); /* delay added for debugging so that the start of the serial transmission is not missed */
 
@@ -85,57 +87,75 @@ void setup()
 #endif
     }
 
-    for( uint8_t nSensorIdx = 0; nSensorIdx < NUM_SENSORS; nSensorIdx++ )
+    while( !bInitSuccess && nRetryCount > 0 )
     {
-        if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor[nSensorIdx].sendSoftResetCmd() )
-        {
-            debugPrint("[INFO] Sent soft reset command to sensor #");
-            debugPrint(nSensorIdx+1);
-            debugPrintln(".");
-        }
-        else
-        {
-            debugPrint("[ERROR] Failed to send soft reset command to sensor #");
-        }
-        delay(90); /* soft reset time is 80 ms */
+        bInitSuccess = true;
+        debugPrintln("");
+        debugPrint("[INFO] Init retry count: ");
+        debugPrintln(nRetryCount);
 
-        if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor[nSensorIdx].readSerialNumber(&nSensorSerialNo) )
+        for( uint8_t nSensorIdx = 0; nSensorIdx < NUM_SENSORS; nSensorIdx++ )
         {
-            debugPrint("[INFO] Read serial number of sensor #");
-            debugPrint(nSensorIdx+1);
-            debugPrint(": ");
-            debugPrint(nSensorSerialNo, HEX);
-            debugPrintln(".");
-        }
-        else
-        {
-            debugPrint("[ERROR] Failed to read serial number of sensor #");
-            debugPrint(nSensorIdx+1);
-            debugPrintln(".");
-            switch( g_eStatus[nSensorIdx] )
+            if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor[nSensorIdx].sendSoftResetCmd() )
             {
-                case MassAirflowSensor::SENSOR_CRC_ERROR:
-                    debugPrint("[ERROR] CRC error.");
-                    break;
-                case MassAirflowSensor::SENSOR_CMD_ERROR:
-                    debugPrint("[ERROR] Command error.");
-                    break;
-                case MassAirflowSensor::SENSOR_RXCNT_ERROR:
-                    debugPrint("[ERROR] RX count error.");
-                    break;
-                case MassAirflowSensor::SENSOR_PARAM_ERROR:
-                    debugPrint("[ERROR] Parameter error.");
-                    break;
-                case MassAirflowSensor::SENSOR_FAIL:
-                default:
-                    debugPrint("[ERROR] Generic failure. Check connectivity!");
-                    break;
+                debugPrint("[INFO] Sent soft reset command to sensor #");
+                debugPrint(nSensorIdx+1);
+                debugPrintln(".");
+            }
+            else
+            {
+                debugPrint("[ERROR] Failed to send soft reset command to sensor #");
+                bInitSuccess = false;
+            }
+            delay(90); /* soft reset time is 80 ms */
+    
+            if( MassAirflowSensor::SENSOR_SUCCESS == g_sensor[nSensorIdx].readSerialNumber(&nSensorSerialNo) )
+            {
+                debugPrint("[INFO] Read serial number of sensor #");
+                debugPrint(nSensorIdx+1);
+                debugPrint(": ");
+                debugPrint(nSensorSerialNo, HEX);
+                debugPrintln(".");
+            }
+            else
+            {
+                debugPrint("[ERROR] Failed to read serial number of sensor #");
+                debugPrint(nSensorIdx+1);
+                debugPrint(" (bus address: 0x");
+                debugPrint(g_sensor[nSensorIdx].getDeviceAddress(), HEX);
+                debugPrintln(").");
+                switch( g_eStatus[nSensorIdx] )
+                {
+                    case MassAirflowSensor::SENSOR_CRC_ERROR:
+                        debugPrintln("[ERROR] CRC error.");
+                        break;
+                    case MassAirflowSensor::SENSOR_CMD_ERROR:
+                        debugPrintln("[ERROR] Command error.");
+                        break;
+                    case MassAirflowSensor::SENSOR_RXCNT_ERROR:
+                        debugPrintln("[ERROR] RX count error.");
+                        break;
+                    case MassAirflowSensor::SENSOR_PARAM_ERROR:
+                        debugPrintln("[ERROR] Parameter error.");
+                        break;
+                    case MassAirflowSensor::SENSOR_FAIL:
+                    default:
+                        debugPrintln("[ERROR] Generic failure. Check connectivity!");
+                        break;
+                }
+                bInitSuccess = false;
+                delay(500);
             }
             delay(500);
-            for(;;); /* halt on error */
         }
-        delay(500);
 
+        nRetryCount--;
+    }
+
+    if( !bInitSuccess )
+    {
+        debugPrintln("[ERROR] Init failed.");
+        for(;;); /* halt on error */
     }
 
     debugPrintln("Finished setup().");

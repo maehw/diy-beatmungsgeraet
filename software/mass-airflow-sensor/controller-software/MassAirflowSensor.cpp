@@ -232,3 +232,8 @@ MassAirflowSensor::eRetVal MassAirflowSensor::sendSoftResetCmd(void)
     return SENSOR_SUCCESS;
 }
 
+uint8_t MassAirflowSensor::getDeviceAddress(void)
+{
+    return m_nDeviceAddress;
+}
+
