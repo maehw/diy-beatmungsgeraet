@@ -19,7 +19,7 @@ area_B = (diameter_B/2)^2 * pi; % [m^2]
 % convert to liters/min: 1 minute = 60 seconds
 % flow = 60 * flow
 
-K = C_disc * sqrt( 2 / dens ) * area_A/sqrt( (area_A/area_B)^2 - 1 ) * 6000;
+K = C_disc * sqrt( 2 / dens ) * area_A/sqrt( (area_A/area_B)^2 - 1 ) * 60 * 1000;
 % K can be pre-caclulated and then stored in the sensor code
 
 flow = K * sqrt( dp );
