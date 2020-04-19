@@ -9,7 +9,6 @@
 //     Analog input: A0
 //     Real-time supervision pin: A3
 //     Interrupt supervision pin: A2
-//   TODO/FIXME: EEPROM is used to store sensor offset voltage for calibration
 
 /* Mapping of the analog input pin, define alias here */
 #define ANALOG_INPUT_PIN      (A0)
@@ -20,6 +19,7 @@
 /* Mapping of the digital output pin for interrupt supervision, define alias here */
 #define INT_SUPERVISION_PIN   (A2)
 
+/* Define USE_STATUS_LED to indicate active measurement by switching on the built-in LED */
 #define USE_STATUS_LED
 
 /* Select differential pressure sensor */
@@ -457,6 +457,7 @@ float eepromReadOffsetVoltage(void)
     g_eepromContent.raw[2] = EEPROM.read(0x2);
     g_eepromContent.raw[3] = EEPROM.read(0x3);
 
+#ifdef DEBUG
     Serial.print("Values read from EEPROM: raw ");
     Serial.print(g_eepromContent.raw[0]);
     Serial.print(", ");
@@ -468,11 +469,13 @@ float eepromReadOffsetVoltage(void)
     Serial.print(", as float: ");
     Serial.print(g_eepromContent.fVoltage);
     Serial.println("");
+#endif
 
+    /* Check for default EEPROM content */
     if( 0xFF == g_eepromContent.raw[0] && 0xFF == g_eepromContent.raw[1] &&
         0xFF == g_eepromContent.raw[1] && 0xFF == g_eepromContent.raw[2] )
     {
-        return 0.0f;
+        return 0.0f; /* do not assume any offset voltage */
     }
     else
     {

@@ -39,7 +39,7 @@ Our prototype for a DIY mass air flow meter consists of:
    The current prototype uses a NXP MPXV5004DP (for 0 to 3.92 kPa). It's an 8-pin chip but uses only power supply (VCC + GND) and provides a measurement via its analog output V_OUT. The 3D models of the tube are designed to fit the sensor in middle of the tube.
 
 3.  **a microcontroller board** used to sample the analog values and provide them via a compatible digital interface (I2C):
-   The prototype is based on an Arduino Nano. 
+   The prototype is based on an Arduino Nano. We'v also used an Arduino Leonardo compatible board: the Beetle Board from DFRobot with an even more appropriate form factor (also ATmega32U4 with bootloader)!
 
 <p align="center">
   <img src="./images/tube.png"><br />
@@ -54,6 +54,8 @@ Our prototype for a DIY mass air flow meter consists of:
 
 
 ## DIY mass air flow meter - sensor code
+
+### Overview
 
 The sensor code is used to:
 
@@ -72,6 +74,8 @@ Additional features:
 The source code can be found [in this subdirectory of this repository](../sensor-software).
 
 
+
+### Mapping/calculations
 
 It's especially complicated to map the differential pressure to volume flow. Assuming formulas for the "Venturi type" tube, we can estimate a quadratic relation between volume flow and differential pressure:
 
@@ -93,6 +97,35 @@ Or:
 However, when the DIY meter is compared with a reference meter, it shows that the constant factor K is around 15.0 and not as calculated around 6.7. This may be due to non-linearities, but the reason is currently not known for sure.
 
 The MATLAB/Octave script can be found [here inside our repository](../sensor-software/VenturiCalcFlow.m).
+
+
+
+### About the sensor code
+
+There are different pre-processor defines which influence how the source code is pre-processed and compiled.
+
+You can:
+
+- select between different models for the differential pressure sensor (currently between an NXP MPXV5004DP and an NXP MP3V5004DP),
+- select betwenn our two 3D tube types: "Venturi type" and "Grid type",
+- define if you want to use additional outputs for real-time verification,
+- define if you want to use the built-in LED to indicate that the sensor is in measuring mode,
+- (de)activate debug mode for more verbose logging via UART,
+- change the measurement intervals (i.e. sampling time),
+- define the sensor's bus address,
+- write the offset voltage to the EEPROM (should be done only once).
+
+The debug mode allows to dump raw and converted/calculated values to the serial console:
+
+<p align="center">
+  <img src="./images/sensor-debugging_60p.png">
+</p>
+
+Hint: The Arduino IDE offers a pretty neat feature to directly plot values from the serial console: the Serial Plotter. However, this is not optimal due to scaling of the curves. You might want to comment out several source code lines with *"debugPrint"* commands.
+
+<p align="center">
+  <img src="./images/sensor-debugging-plot_60p.png">
+</p>
 
 
 
