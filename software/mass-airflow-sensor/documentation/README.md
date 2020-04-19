@@ -74,13 +74,16 @@ The source code can be found [in this subdirectory of this repository](../sensor
 
 
 It's especially complicated to map the differential pressure to volume flow. Assuming formulas for the "Venturi type" tube, we can estimate a quadratic relation between volume flow and differential pressure:
-$$
-dV \sim \sqrt{dp}
-$$
+
+<p align="center">
+  <img src="./images/dv-dp-formula1.png">
+</p>
+
 Or:
-$$
-dV \approx K \cdot \sqrt{dp}
-$$
+
+<p align="center">
+  <img src="./images/dv-dp-formula2.png">
+</p>
 
 
 <p align="center">
