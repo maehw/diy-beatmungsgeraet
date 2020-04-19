@@ -73,6 +73,26 @@ The source code can be found [in this subdirectory of this repository](../sensor
 
 
 
+It's especially complicated to map the differential pressure to volume flow. Assuming formulas for the "Venturi type" tube, we can estimate a quadratic relation between volume flow and differential pressure:
+$$
+dV \sim \sqrt{dp}
+$$
+Or:
+$$
+dV \approx K \cdot \sqrt{dp}
+$$
+
+
+<p align="center">
+  <img src="./images/flow-calculation_60p.png">
+</p>
+
+However, when the DIY meter is compared with a reference meter, it shows that the constant factor K is around 15.0 and not as calculated around 6.7. This may be due to non-linearities, but the reason is currently not known for sure.
+
+The MATLAB/Octave script can be found [here inside our repository](../sensor-software/VenturiCalcFlow.m).
+
+
+
 ## Mass air flow meter - controller code
 
 The sensor code is used to:
