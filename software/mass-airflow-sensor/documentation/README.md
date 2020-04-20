@@ -183,4 +183,5 @@ Note: The analyzer is still work in progress. It might be extended to support ve
 ## Flow measurement basics
 
 * [Sensirion Application Note for SDP600 and SDP1000 Series: Measuring Flow in a Bypass Configuration](https://www.sos.sk/a_info/resource/c/sensirion/SDPxxx_Bypass_Configuration.pdf)
+* Robert Haas' [PipeFlow project on github](https://github.com/Haasrobertgmxnet/PipeFlow/tree/master/PipeFlow); more documentation with formulas in the [PipeFlow wiki](https://github.com/Haasrobertgmxnet/PipeFlow/wiki)
 
