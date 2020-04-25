@@ -220,11 +220,9 @@ void loop()
 #ifdef DEBUG_PLOT
     debugPrint(" First: ");
     debugPrint( g_fFlow[0] );
+    /* Caution: number of ouputs should match NUM_SENSORS */
     debugPrint(", Second: ");
     debugPrint( g_fFlow[1] );
-    debugPrint(", Third: ");
-    debugPrint( g_fFlow[2] );
-    
     debugPrintln("");
 #else
     /* Allow estimation of accumulated volume */
