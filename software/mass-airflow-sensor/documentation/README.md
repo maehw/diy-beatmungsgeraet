@@ -98,6 +98,17 @@ However, when the DIY meter is compared with a reference meter, it shows that th
 
 The MATLAB/Octave script can be found [here inside our repository](../sensor-software/VenturiCalcFlow.m).
 
+### Known problems/issues
+
+* [AnalogRead](https://www.arduino.cc/reference/en/language/functions/analog-io/analogread/) accuracy in the Arduino platform: As stated [here](https://forum.arduino.cc/index.php?topic=109672.0), the "readings of the ADCs are always relative to the Vcc (usually 5V) if not configured for AREF. So if your Vcc varies your readings of the ADC will change appropriately". Some platforms take their Vcc directly from the USB port if not powered by an external power supply.
+  In our current approach this may lead to inaccurate readings of the differential pressure sensor and therefore also wrong volume flow values. There's two possible solutions:
+  1. Use of an accurate external power supply or a good on-board power regulator to provide a stable 5.0 Vcc voltage.
+  2. [Configuring the reference voltage used for analog input](https://www.arduino.cc/reference/en/language/functions/analog-io/analogreference/) in the Arduino code: there's a variety of reference voltages to select from. "The default analog reference of 5 volts (on 5V Arduino boards) or 3.3 volts (on 3.3V Arduino boards)." But: this depends on the chosen Arduino hardware. E.g. the value INTERNAL means something different for ATmega168/ATmega328P (1.1 volts) and ATmega32U4/ATmega8 (2.56 volts).
+       The **Arduino Uno** is based on an ATmega328P, so 1.1 volts would be used. That's not a good fit, as the differential pressure sensor has a constant offset voltage of around 1.0 volts at 0 kPa differential pressure and the usable range is very small (from 1.0 to 1.1 volts).
+       The **Arduino Leonardo** board is based on an ATmega32U4, so 1.1 volts would be used. That does **not** seem to be a good fit, as the differential pressure sensor has a constant offset voltage of around 1.0 volts at 0 kPa differential pressure and the usable range is very small (from 1.0 to 1.1 volts).
+       The Arduino Leonardo board is based on an ATmega32u4, so 2.56 volts would be used here. Depending on the differential pressure sensor this could give readings between 0 and ~1500 Pa (from 1.0 to 2.56 volts).
+* Vcc inaccuracy and drift might be problems related to the differential pressure sensor.
+
 
 
 ### About the sensor code
@@ -126,6 +137,39 @@ Hint: The Arduino IDE offers a pretty neat feature to directly plot values from 
 <p align="center">
   <img src="./images/sensor-debugging-plot_60p.png">
 </p>
+
+
+### Procedure to define offset voltage
+
+Make the following changes to the code:
+
+Uncomment the line reading:
+
+```
+eepromWriteOffsetVoltage( 0.0f );
+```
+
+Make sure to `#define DEBUG`.
+
+Comment the line reading: `#define DEBUG_PRINT_STATUS`.
+
+Make sure that the value initially reads `0.0f`.
+
+Change the serial debug output to print only voltage values:
+
+```
+debugPrint( fVoltage ); /* value of interest for initial offset calibration */
+debugPrintln("");
+```
+
+Compile and run the code on the sensor. Open the Serial Monitor in the IDE and collect the raw voltage values. Use a tool to calculate the mean value. Subtract `1000.0` (1000 millivolts, i.e. 1 volt) from the value and store the result in the call of `eepromWriteOffsetVoltage()`. E.g. a mean value of `1044.7` leads to:
+
+```eepromWriteOffsetVoltage( 44.7f );```
+
+Compile and run the code once more. You should now read a mean value of 1000 millivolts.
+
+Revert your changes to the source code, especially do not forget to comment `eepromWriteOffsetVoltage()` out!
+
 
 
 

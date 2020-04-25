@@ -5,7 +5,8 @@ function [flow, K] = VenturiCalcFlow(dp)
 
 diameter_A = 1.3e-2; % upstream diameter; [m]
 diameter_B = 0.6e-2; % neck diameter; [m]
-dens = 1.29; % fluid density of air; [kg/m^3]
+%dens = 1.29; % fluid density of air; [kg/m^3]
+dens = 1.40; % fluid density of air; [kg/m^3]; raised
 C_disc = 0.98; % discharge coefficient
 area_A = (diameter_A/2)^2 * pi; % [m^2]
 area_B = (diameter_B/2)^2 * pi; % [m^2]

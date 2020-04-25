@@ -36,11 +36,17 @@ float g_fOffsetVoltage = 0.0f; /* in milliVolts */
 /* Disallow negative differential pressure values, i.e. only flow in one direction */
 #define DISALLOW_NEGATIVE_VALUES
 
+/* Choose _one_ of the following voltage reference settings */
+//#define VOLTAGE_REF_5V_DEFAULT
+//#define VOLTAGE_REF_1V0_INTERNAL /* (currently not supported!) ATmega168/ATmega328P based boards, e.g. Arduno Uno */
+#define VOLTAGE_REF_2V56_INTERNAL /* ATmega32U4 based boards, e.g. Arduino Leonardo */
+
 #define DEBUG
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
     //#define DEBUG_INT /* Depending on the timing of the sensor controller requests, it may be useful to turn this off */
+    #define DEBUG_PRINT_STATUS
 #else
     #define debugPrint    
     #define debugPrintln  
@@ -125,10 +131,16 @@ void setup()
     #error Selected sensor geometry is not supported.
 #endif
 
+#if defined(VOLTAGE_REF_2V56_INTERNAL) || defined(VOLTAGE_REF_1V0_INTERNAL)
+    analogReference(INTERNAL);
+#else
+    analogReference(DEFAULT);
+#endif
+
     /* allow voltage offset to be read from EEPROM where it is programmed once;
      * another way would be to calculate a mean "idle" offset voltage at startup
      */
-    //eepromWriteOffsetVoltage( -38.1f ); /* program it once, then comment this line out */
+    //eepromWriteOffsetVoltage( 54.0f ); /* program it once, then comment this line out */
     g_fOffsetVoltage = eepromReadOffsetVoltage();
 
 #ifdef DEBUG
@@ -156,14 +168,18 @@ void loop()
 
     if( SENSOR_MODE_MEASURE == g_eMode )
     {
+#ifdef DEBUG_PRINT_STATUS
         debugPrint("[*] "); /* in measuring mode */
+#endif
 #ifdef USE_STATUS_LED
         digitalWrite(LED_BUILTIN, HIGH);
 #endif
     }
     else
     {
+#ifdef DEBUG_PRINT_STATUS
         debugPrint("[ ] "); /* not in measuring mode */
+#endif
 #ifdef USE_STATUS_LED
         digitalWrite(LED_BUILTIN, LOW);
 #endif
@@ -182,10 +198,10 @@ void loop()
     debugPrint("Sensor value: ");
 //    debugPrint(nConversionValue); // raw reading
 //    debugPrint(" counts, ");
-    debugPrint( fVoltage );
-    debugPrint(" mV, ");
-    debugPrint( fPressure );
-    debugPrint(" mmWater, ");
+//    debugPrint( fVoltage ); /* value of interest for initial voltage offset calibration (to be stored in EEPROM) */
+//    debugPrint(" mV, ");
+//    debugPrint( fPressure );
+//    debugPrint(" mmWater, ");
     debugPrint( fVolumeFlow );
     debugPrint(" flow");
     debugPrintln("");
@@ -345,10 +361,23 @@ void transmitRequestEvent(void)
 
 float countsToMillivolts(int nCounts)
 {
-    // For the Arduino Uno, its a 10 bit unsgined value (i.e. a range of 0..1023).
-    // Its measurement range is from 0..5 volts.
-    // This yields a resolution between readings of: 5 volts / 1024 units or approx. 4.9 mV per LSB
+    /* For the Arduino Uno and Arduino Leonardo, its a 10 bit unsgined value (i.e. a range of 0..1023).
+     * VOLTAGE_REF_5V_DEFAULT:
+     *   The default measurement range is from 0..5 volts. Please read the documentation for related issues!
+     *   This yields a resolution between readings of: 5 volts / 1024 units or approx. 4.9 mV per LSB.
+     * VOLTAGE_REF_2V56_INTERNAL:
+     *   The default measurement range is from 0..2.56 volts.
+     *   This yields a resolution between readings of: 2.56 volts / 1024 units or 2.5 mV per LSB.
+     * VOLTAGE_REF_1V0_INTERNAL:
+     *   Please read the documentation for related issues!
+     */
+#if defined(VOLTAGE_REF_5V_DEFAULT)
     return nCounts * 4.882813f;
+#elif defined(VOLTAGE_REF_2V56_INTERNAL)
+    return nCounts * 2.5f;
+#elif defined(VOLTAGE_REF_1V0_INTERNAL)
+    #error Currently not supported.
+#endif
 }
 
 float millivoltsToPressure(float fMillivolts)
@@ -411,7 +440,7 @@ float pressureToVolumeFlow(float fPressure)
     }
     else
     {
-        fFlow = 6.4f * sqrt(fPressure);
+        fFlow = 6.65f * sqrt(fPressure); /* the value 6.65 is taken from simulations of the 3D printed model */
     }
 #else
     fFlow = fPressure;
