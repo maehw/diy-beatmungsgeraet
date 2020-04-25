@@ -223,6 +223,7 @@ Note: The analyzer is still work in progress. It might be extended to support ve
 * "Freeflow flow sensor" on [hackaday.io](https://hackaday.io/project/170928-freeflow-flow-sensor) as well as on [github](https://github.com/sglow/freeflow)
 * "VISP - Ventilator Inline Sensor Package" on [hackaday.io](https://hackaday.io/project/170622-visp-ventilator-inline-sensor-package)
 * "VentMon - Inline Ventilator Test Fixture and Monitor" on [github](https://github.com/PubInv/ventmon-ventilator-inline-test-monitor)
+* "OsciBreath" on [github](https://github.com/FDX-Fluid-Dynamix/OsciBreath) uses an microphone- and FFT-based approach to determine volume flow 
 
 ## Flow measurement basics
 
