@@ -69,7 +69,15 @@ float g_fOffsetVoltage = 0.0f; /* in milliVolts */
 #endif
 
 /* Definition of sensor modes, i.e. what values will be return upon Wire transmit request event */
-enum eSensorMode { SENSOR_MODE_NONE = 0, SENSOR_MODE_MEASURE, SENSOR_MODE_SERIALNO };
+enum eSensorMode {
+    SENSOR_MODE_NONE = 0,       /*!< Initial mode, sensor has not been initialized yet */
+    SENSOR_MODE_MEASURE,        /*!< Measuring mode (delivering volume flow values) */
+    SENSOR_MODE_SERIALNO,       /*!< Deliver serial number */
+    SENSOR_MODE_MEASURE_RAWV,   /*!< Measuring mode (delivering raw voltage values) */
+    SENSOR_MODE_MEASURE_RAWVO,  /*!< Measuring mode (delivering raw voltage values, offset removed) */
+    SENSOR_MODE_MEASURE_RAWDP,  /*!< Measuring mode (delivering raw differential pressure values) */
+    SENSOR_MODE_MEASURE_RAWF    /*!< Measuring mode (delivering raw volume flow values) */
+};
 
 /* define the address of the sensor on the I2C bus;
  * TODO/FIXME: decide address to be used via GPIO input pin during setup()
@@ -77,10 +85,7 @@ enum eSensorMode { SENSOR_MODE_NONE = 0, SENSOR_MODE_MEASURE, SENSOR_MODE_SERIAL
 uint8_t g_nDeviceAddress = 0x42;
 
 /* Initialize global variables */
-//volatile int g_nConversionValue = 0; /* digital value for sensor's analog input */
 volatile eSensorMode g_eMode = SENSOR_MODE_NONE; /* sensor mode start with 'NONE' */
-
-volatile uint16_t g_nTxWord = 0;
 
 union eepromContent {
     uint8_t raw[4];
@@ -90,6 +95,16 @@ union eepromContent {
 };
 union eepromContent g_eepromContent;
 
+union singlePrecFloat {
+    uint8_t raw[4];
+    float fFloatVal;
+};
+
+volatile union singlePrecFloat g_voltage;
+volatile union singlePrecFloat g_voltageOffRem;
+volatile union singlePrecFloat g_diffPressure;
+volatile union singlePrecFloat g_flow;
+volatile uint16_t g_nFlowTxWord = 0;
 
 void eepromWriteOffsetVoltage(float fOffsetVoltage);
 float eepromReadOffsetVoltage(void);
@@ -143,6 +158,12 @@ void setup()
     //eepromWriteOffsetVoltage( 54.0f ); /* program it once, then comment this line out */
     g_fOffsetVoltage = eepromReadOffsetVoltage();
 
+    g_nFlowTxWord = 0;
+    g_voltage.fFloatVal = 0.0f;
+    g_voltageOffRem.fFloatVal = 0.0f;
+    g_diffPressure.fFloatVal = 0.0f;
+    g_flow.fFloatVal = 0.0f;
+
 #ifdef DEBUG
     Serial.println("Debug mode active.");
 #else
@@ -155,10 +176,11 @@ void setup()
 void loop()
 {
     static int nConversionValue = 0;
-    static float fVoltage = 0.0f;
-    static float fPressure = 0.0f;
-    static float fVolumeFlow = 0.0f;
     static uint16_t nTxWord = 0;
+    static bool bPrintAll = true; /* has the highest priority, i.e. if set to true, overwrites the following three flags */
+    static bool bPrintVoltage = false;
+    static bool bPrintVoltageOffRem = false;
+    static bool bPrintDiffPressure = false;
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, HIGH);
@@ -166,10 +188,26 @@ void loop()
     
     nConversionValue = analogRead(ANALOG_INPUT_PIN);
 
-    if( SENSOR_MODE_MEASURE == g_eMode )
+    if( SENSOR_MODE_MEASURE == g_eMode || SENSOR_MODE_MEASURE_RAWV == g_eMode || SENSOR_MODE_MEASURE_RAWVO == g_eMode || 
+        SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWF == g_eMode )
     {
 #ifdef DEBUG_PRINT_STATUS
-        debugPrint("[*] "); /* in measuring mode */
+        if( SENSOR_MODE_MEASURE == g_eMode )
+        {
+            debugPrint("[*] "); /* in measuring mode */
+        }
+        else if( SENSOR_MODE_MEASURE_RAWV == g_eMode )
+        {
+            debugPrint("[V] "); /* in measuring mode, output raw voltage values */
+        }
+        else if( SENSOR_MODE_MEASURE_RAWDP == g_eMode)
+        {
+            debugPrint("[P] "); /* in measuring mode, output raw differential pressure values */
+        }
+        else if( SENSOR_MODE_MEASURE_RAWF == g_eMode)
+        {
+            debugPrint("[F] "); /* in measuring mode, output raw volume flow values */
+        }
 #endif
 #ifdef USE_STATUS_LED
         digitalWrite(LED_BUILTIN, HIGH);
@@ -185,26 +223,36 @@ void loop()
 #endif
     }
 
-    fVoltage = countsToMillivolts(nConversionValue);
-    fVoltage -= g_fOffsetVoltage;
-    fPressure = millivoltsToPressure( fVoltage );
-    fVolumeFlow = pressureToVolumeFlow( fPressure );
+    g_voltage.fFloatVal = countsToMillivolts(nConversionValue);
+    g_voltageOffRem.fFloatVal = g_voltage.fFloatVal - g_fOffsetVoltage;
+
+    g_diffPressure.fFloatVal = millivoltsToPressure( g_voltageOffRem.fFloatVal );
+    g_flow.fFloatVal = pressureToVolumeFlow( g_diffPressure.fFloatVal );
 
     /* prepare value for serial communication via I2C */
-    g_nTxWord = volumeFlowToTxWord( fVolumeFlow );
-
+    g_nFlowTxWord = volumeFlowToTxWord( g_flow.fFloatVal );
 
     // Debug output the sensor's reading (conversion valie)
     debugPrint("Sensor value: ");
-//    debugPrint(nConversionValue); // raw reading
-//    debugPrint(" counts, ");
-//    debugPrint( fVoltage ); /* value of interest for initial voltage offset calibration (to be stored in EEPROM) */
-//    debugPrint(" mV, ");
-//    debugPrint( fPressure );
-//    debugPrint(" mmWater, ");
-    debugPrint( fVolumeFlow );
-    debugPrint(" flow");
-    debugPrintln("");
+    if( bPrintAll || bPrintVoltage || SENSOR_MODE_MEASURE_RAWV == g_eMode )
+    {
+        debugPrint( g_voltage.fFloatVal );
+        debugPrint(" mV, ");
+    }
+    if( bPrintAll || bPrintVoltageOffRem || SENSOR_MODE_MEASURE_RAWVO == g_eMode )
+    {
+        debugPrint( g_voltageOffRem.fFloatVal );
+        debugPrint(" mV, ");
+    }
+    if( bPrintAll || bPrintDiffPressure || SENSOR_MODE_MEASURE_RAWDP == g_eMode )
+    {
+        debugPrint( g_diffPressure.fFloatVal );
+        debugPrint(" mmWater, ");
+    }
+
+    /* Always print the flow */
+    debugPrint( g_flow.fFloatVal );
+    debugPrintln(" lpm"); /* liters per minute */
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, LOW);
@@ -283,6 +331,35 @@ void receiveEvent(int nBytes)
         debugPrintln("Rx'ed 'start measurement' command");
         g_eMode = SENSOR_MODE_MEASURE;
     }
+    else if( 0x20 == cCmdBytes[0] && 0x00 == cCmdBytes[1] )
+    {
+        debugPrintln("Rx'ed 'soft reset' command");
+        g_eMode = SENSOR_MODE_NONE;
+        g_nFlowTxWord = 0;
+        g_voltage.fFloatVal = 0.0f;
+        g_diffPressure.fFloatVal = 0.0f;
+        g_flow.fFloatVal = 0.0f;
+    }
+    else if( 0x42 == cCmdBytes[0] && 0x00 == cCmdBytes[1] )
+    {
+        debugPrintln("Rx'ed 'start measurement (raw voltage)' command");
+        g_eMode = SENSOR_MODE_MEASURE_RAWV;
+    }
+    else if( 0x42 == cCmdBytes[0] && 0x01 == cCmdBytes[1] )
+    {
+        debugPrintln("Rx'ed 'start measurement (raw voltage, offset removed)' command");
+        g_eMode = SENSOR_MODE_MEASURE_RAWVO;
+    }
+    else if( 0x42 == cCmdBytes[0] && 0x02 == cCmdBytes[1] )
+    {
+        debugPrintln("Rx'ed 'start measurement (raw differential pressure)' command");
+        g_eMode = SENSOR_MODE_MEASURE_RAWDP;
+    }
+    else if( 0x42 == cCmdBytes[0] && 0x03 == cCmdBytes[1] )
+    {
+        debugPrintln("Rx'ed 'start measurement (raw volume flow)' command");
+        g_eMode = SENSOR_MODE_MEASURE_RAWF;
+    }
     else if( 0x31 == cCmdBytes[0] && 0xAE == cCmdBytes[1] )
     {
         debugPrintln("Rx'ed 'read serial number' command");
@@ -317,18 +394,60 @@ void transmitRequestEvent(void)
     switch( g_eMode )
     {
         case SENSOR_MODE_MEASURE:
-            /* TODO/FIXME: add true measurement data and add CRC */
 #ifdef DEBUG_INT
-            debugPrintln("[DEBUG] Tx measurement");
+            debugPrintln("[DEBUG] Tx true measurement");
 #endif
-            char sMeas[2];
-            //sMeas[0] = 'F';
-            //sMeas[1] = 'L';
-            sMeas[0] = (uint8_t)( (g_nTxWord & 0xFF00) >> 8 );
-            sMeas[1] = (uint8_t)(g_nTxWord & 0xFF);
+            char sMeas[2]; /* buffer to hold measurement data */
+            // TODO/FIXME: the following lines should be atomic or double-buffered to prevent corruption
+            sMeas[0] = (uint8_t)( (g_nFlowTxWord & 0xFF00) >> 8 );
+            sMeas[1] = (uint8_t)(g_nFlowTxWord & 0xFF);
             Wire.write((char)sMeas[0]);
             Wire.write((char)sMeas[1]);
             Wire.write((char)calcCrc(&sMeas[0], 2) );
+            break;
+        case SENSOR_MODE_MEASURE_RAWV:
+#ifdef DEBUG_INT
+            debugPrintln("[DEBUG] Tx raw voltage measurement");
+#endif
+            // TODO/FIXME: the following lines should be atomic or double-buffered to prevent corruption
+            Wire.write((char)g_voltage.raw[0]);
+            Wire.write((char)g_voltage.raw[1]);
+            Wire.write((char)g_voltage.raw[2]);
+            Wire.write((char)g_voltage.raw[3]);
+            Wire.write((char)calcCrc(&g_voltage.raw[0], 4) );
+            break;
+        case SENSOR_MODE_MEASURE_RAWVO:
+#ifdef DEBUG_INT
+            debugPrintln("[DEBUG] Tx raw voltage (w/o offset) measurement");
+#endif
+            // TODO/FIXME: the following lines should be atomic or double-buffered to prevent corruption
+            Wire.write((char)g_voltageOffRem.raw[0]);
+            Wire.write((char)g_voltageOffRem.raw[1]);
+            Wire.write((char)g_voltageOffRem.raw[2]);
+            Wire.write((char)g_voltageOffRem.raw[3]);
+            Wire.write((char)calcCrc(&g_voltageOffRem.raw[0], 4) );
+            break;
+        case SENSOR_MODE_MEASURE_RAWDP:
+#ifdef DEBUG_INT
+            debugPrintln("[DEBUG] Tx raw differential pressure measurement");
+#endif
+            // TODO/FIXME: the following lines should be atomic or double-buffered to prevent corruption
+            Wire.write((char)g_diffPressure.raw[0]);
+            Wire.write((char)g_diffPressure.raw[1]);
+            Wire.write((char)g_diffPressure.raw[2]);
+            Wire.write((char)g_diffPressure.raw[3]);
+            Wire.write((char)calcCrc(&g_diffPressure.raw[0], 4) );
+            break;
+        case SENSOR_MODE_MEASURE_RAWF:
+#ifdef DEBUG_INT
+            debugPrintln("[DEBUG] Tx raw flow measurement");
+#endif
+            // TODO/FIXME: the following lines should be atomic or double-buffered to prevent corruption
+            Wire.write((char)g_flow.raw[0]);
+            Wire.write((char)g_flow.raw[1]);
+            Wire.write((char)g_flow.raw[2]);
+            Wire.write((char)g_flow.raw[3]);
+            Wire.write((char)calcCrc(&g_flow.raw[0], 4) );
             break;
         case SENSOR_MODE_SERIALNO:
             char sSerNo[4];
