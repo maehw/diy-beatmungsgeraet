@@ -183,11 +183,11 @@ The commands listed in the first three rows are intended to be compatible with S
 | 0x10 0x00    | Start measurement                                            | 3 bytes:<br />2 bytes data + 1 byte CRC                      |
 | 0x20 0x00    | Soft reset command                                           | N/A                                                          |
 | 0x31 0xAE    | Read serial number                                           | 6 bytes:<br />2 bytes data + 1 byte CRC + <br />2 bytes data + 1 byte CRC |
-| 0x42 0x00    | Start raw measurement, raw voltage                           | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
-| 0x42 0x01    | Start raw measurement, <br />raw voltage offset removed/compensated | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
-| 0x42 0x02    | Start raw measurement, <br />raw differential pressure       | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
-| 0x42 0x03    | Start raw measurement, <br />raw volume flow                 | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
-| 0x42 0x04    | Start raw measurement, <br />raw frequency                   | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
+| 0x42 0x00    | Start raw measurement, raw voltage                           | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: mV |
+| 0x42 0x01    | Start raw measurement, <br />raw voltage offset removed/compensated | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: mV |
+| 0x42 0x02    | Start raw measurement, <br />raw differential pressure       | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: kPa |
+| 0x42 0x03    | Start raw measurement, <br />raw volume flow                 | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: liters per minute |
+| 0x42 0x04    | Start raw measurement, <br />raw frequency                   | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: Hertz |
 
 
 
