@@ -172,6 +172,25 @@ Revert your changes to the source code, especially do not forget to comment `eep
 
 
 
+### Supported sensor commands + readout messages
+
+The sensor supports the following 2 byte (16 bit) commands. Sending those commands leads to a mode change. In ever mode, the sensor will respond with differently formatted readout messages.
+
+The commands listed in the first three rows are intended to be compatible with Sensirion flow meters:
+
+| Command code | Command description                                          | Continous readout in that mode                               |
+| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 0x10 0x00    | Start measurement                                            | 3 bytes:<br />2 bytes data + 1 byte CRC                      |
+| 0x20 0x00    | Soft reset command                                           | N/A                                                          |
+| 0x31 0xAE    | Read serial number                                           | 6 bytes:<br />2 bytes data + 1 byte CRC + <br />2 bytes data + 1 byte CRC |
+| 0x42 0x00    | Start raw measurement, raw voltage                           | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
+| 0x42 0x01    | Start raw measurement, <br />raw voltage offset removed/compensated | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
+| 0x42 0x02    | Start raw measurement, <br />raw differential pressure       | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
+| 0x42 0x03    | Start raw measurement, <br />raw volume flow                 | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
+| 0x42 0x04    | Start raw measurement, <br />raw frequency                   | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC |
+
+
+
 
 ## Mass air flow meter - controller code
 
