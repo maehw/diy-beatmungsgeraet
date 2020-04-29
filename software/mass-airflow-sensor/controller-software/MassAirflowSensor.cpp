@@ -32,6 +32,10 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readMeasurement(float* pfFlow, uin
     debugPrintln(")");
 #endif
 
+    if( 0 == pfFlow )
+    {
+        return SENSOR_PARAM_ERROR; 
+    }
     if( bSendMeasCmd )
     {
         if( SENSOR_SUCCESS != sendStartMeasurementCmd() )
@@ -136,6 +140,10 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readSerialNumber(int32_t* pnSerial
     debugPrintln(")");
 #endif
 
+    if( 0 == pnSerialNo )
+    {
+        return SENSOR_PARAM_ERROR; 
+    }
     if( SENSOR_SUCCESS != sendReadSerialNumberCmd() )
     {
         return SENSOR_CMD_ERROR; 
@@ -214,16 +222,21 @@ crc_t MassAirflowSensor::calcCrc(const unsigned char *pData, size_t nDataLen)
     return nCrc;
 }
 
+uint8_t MassAirflowSensor::getDeviceAddress(void)
+{
+    return m_nDeviceAddress;
+}
+
 MassAirflowSensor::eRetVal MassAirflowSensor::sendSoftResetCmd(void)
 {
 #ifdef DEBUG
     debugPrintln("sendSoftResetCmd() start");
 #endif
 
-    Wire.beginTransmission(m_nDeviceAddress); // transmit to device
+    Wire.beginTransmission(m_nDeviceAddress);
     Wire.write(0x20);
     Wire.write(0x00);
-    Wire.endTransmission(); // stop transmitting
+    Wire.endTransmission();
 
 #ifdef DEBUG
     debugPrintln("sendSoftResetCmd() end");
@@ -232,8 +245,145 @@ MassAirflowSensor::eRetVal MassAirflowSensor::sendSoftResetCmd(void)
     return SENSOR_SUCCESS;
 }
 
-uint8_t MassAirflowSensor::getDeviceAddress(void)
+MassAirflowSensor::eRetVal MassAirflowSensor::sendStartMeasurementRawVCmd(void)
 {
-    return m_nDeviceAddress;
+    Wire.beginTransmission(m_nDeviceAddress);
+    Wire.write(0x42);
+    Wire.write(0x00);
+    Wire.endTransmission();
+
+    return SENSOR_SUCCESS;
+}
+
+MassAirflowSensor::eRetVal MassAirflowSensor::sendStartMeasurementRawVoCmd(void)
+{
+    Wire.beginTransmission(m_nDeviceAddress);
+    Wire.write(0x42);
+    Wire.write(0x01);
+    Wire.endTransmission();
+
+    return SENSOR_SUCCESS;
+}
+
+MassAirflowSensor::eRetVal MassAirflowSensor::sendStartMeasurementRawDpCmd(void)
+{
+    Wire.beginTransmission(m_nDeviceAddress);
+    Wire.write(0x42);
+    Wire.write(0x02);
+    Wire.endTransmission();
+
+    return SENSOR_SUCCESS;
+}
+
+MassAirflowSensor::eRetVal MassAirflowSensor::sendStartMeasurementRawFlCmd(void)
+{
+    Wire.beginTransmission(m_nDeviceAddress);
+    Wire.write(0x42);
+    Wire.write(0x03);
+    Wire.endTransmission();
+
+    return SENSOR_SUCCESS;
+}
+
+MassAirflowSensor::eRetVal MassAirflowSensor::readFloat(float* pfFloat, MassAirflowSensor::eFloatValType eType, bool bSendMeasCmd)
+{
+    static eRetVal eStatus;
+
+#ifdef DEBUG
+    debugPrint("readFloat(");
+    debugPrint("pfFloat=");
+    debugPrint((long unsigned int)pfFloat);
+    debugPrint(", eType=");
+    debugPrint((long unsigned int)eType);
+    debugPrint(", bSendMeasCmd=");
+    debugPrint((long unsigned int)bSendMeasCmd);
+    debugPrintln(")");
+#endif
+
+    if( 0 == pfFloat )
+    {
+        return SENSOR_PARAM_ERROR; 
+    }
+    if( bSendMeasCmd )
+    {
+        switch( eType )
+        {
+            case SENSOR_FLOAT_V:
+                if( SENSOR_SUCCESS != sendStartMeasurementRawVCmd() )
+                {
+                    return SENSOR_CMD_ERROR;
+                }
+                break;
+            case SENSOR_FLOAT_VO:
+                if( SENSOR_SUCCESS != sendStartMeasurementRawVoCmd() )
+                {
+                    return SENSOR_CMD_ERROR;
+                }
+                break;
+            case SENSOR_FLOAT_DP:
+                if( SENSOR_SUCCESS != sendStartMeasurementRawDpCmd() )
+                {
+                    return SENSOR_CMD_ERROR;
+                }
+                break;
+            case SENSOR_FLOAT_FL:
+                if( SENSOR_SUCCESS != sendStartMeasurementRawFlCmd() )
+                {
+                    return SENSOR_CMD_ERROR;
+                }
+                break;
+            default:
+                return SENSOR_CMD_ERROR;
+        }
+    }
+
+    eStatus = readFloatValue(pfFloat);
+
+    return eStatus;
+}
+
+MassAirflowSensor::eRetVal MassAirflowSensor::readFloatValue(float* pfFloat)
+{
+    static char sHexBuf[12]; /* string buffer for debug output via UART */
+    static uint8_t nMeasRx[5];
+    uint8_t nReceived = 0;
+    int32_t nVal = 0;
+
+    Wire.requestFrom(m_nDeviceAddress, (uint8_t)5); // request 5 bytes from slave device
+  
+    while( Wire.available() ) // slave may send less than requested
+    {
+        uint8_t cRxByte = Wire.read(); // receive a byte as character
+        if( nReceived < 5 )
+        {
+            // buffer raw bytes and received CRC here
+            nMeasRx[nReceived] = cRxByte;
+        }
+        ++nReceived;
+    }
+
+    if( 5 != nReceived )
+    {
+        *pfFloat = 0.0f;
+        debugPrint("[ERROR] Received ");
+        debugPrint( nReceived );
+        debugPrintln(" instead of 5 bytes.");
+        return SENSOR_RXCNT_ERROR;
+    }
+
+    // calculate CRC here and check with received CRC
+    crc_t cCalculatedCrc = calcCrc(&nMeasRx[0], 4);
+
+    if( nMeasRx[4] != (uint8_t)cCalculatedCrc )
+    {
+        debugPrintln("[ERROR] CRC does not match.");
+        return SENSOR_CRC_ERROR;
+    }
+
+    // convert to int32_t and prepare as return value
+    nVal = ((int32_t)nMeasRx[0] << 24) | ((int32_t)nMeasRx[1] << 16) | ((int32_t)nMeasRx[2] << 8) | ((int32_t)nMeasRx[0]);
+
+    *pfFloat = nVal;
+    return SENSOR_SUCCESS;
 }
 
