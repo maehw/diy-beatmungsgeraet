@@ -76,7 +76,7 @@ enum eSensorMode {
     SENSOR_MODE_MEASURE_RAWV,   /*!< Measuring mode (delivering raw voltage values) */
     SENSOR_MODE_MEASURE_RAWVO,  /*!< Measuring mode (delivering raw voltage values, offset removed) */
     SENSOR_MODE_MEASURE_RAWDP,  /*!< Measuring mode (delivering raw differential pressure values) */
-    SENSOR_MODE_MEASURE_RAWF    /*!< Measuring mode (delivering raw volume flow values) */
+    SENSOR_MODE_MEASURE_RAWFL   /*!< Measuring mode (delivering raw volume flow values) */
 };
 
 /* define the address of the sensor on the I2C bus;
@@ -189,7 +189,7 @@ void loop()
     nConversionValue = analogRead(ANALOG_INPUT_PIN);
 
     if( SENSOR_MODE_MEASURE == g_eMode || SENSOR_MODE_MEASURE_RAWV == g_eMode || SENSOR_MODE_MEASURE_RAWVO == g_eMode || 
-        SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWF == g_eMode )
+        SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWFL == g_eMode )
     {
 #ifdef DEBUG_PRINT_STATUS
         if( SENSOR_MODE_MEASURE == g_eMode )
@@ -204,7 +204,7 @@ void loop()
         {
             debugPrint("[P] "); /* in measuring mode, output raw differential pressure values */
         }
-        else if( SENSOR_MODE_MEASURE_RAWF == g_eMode)
+        else if( SENSOR_MODE_MEASURE_RAWFL == g_eMode)
         {
             debugPrint("[F] "); /* in measuring mode, output raw volume flow values */
         }
@@ -358,7 +358,7 @@ void receiveEvent(int nBytes)
     else if( 0x42 == cCmdBytes[0] && 0x03 == cCmdBytes[1] )
     {
         debugPrintln("Rx'ed 'start measurement (raw volume flow)' command");
-        g_eMode = SENSOR_MODE_MEASURE_RAWF;
+        g_eMode = SENSOR_MODE_MEASURE_RAWFL;
     }
     else if( 0x31 == cCmdBytes[0] && 0xAE == cCmdBytes[1] )
     {
@@ -438,7 +438,7 @@ void transmitRequestEvent(void)
             Wire.write((char)g_diffPressure.raw[3]);
             Wire.write((char)calcCrc(&g_diffPressure.raw[0], 4) );
             break;
-        case SENSOR_MODE_MEASURE_RAWF:
+        case SENSOR_MODE_MEASURE_RAWFL:
 #ifdef DEBUG_INT
             debugPrintln("[DEBUG] Tx raw flow measurement");
 #endif
