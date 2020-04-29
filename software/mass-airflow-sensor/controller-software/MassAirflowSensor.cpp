@@ -11,6 +11,11 @@
     #define debugPrintln  
 #endif
 
+union singlePrecFloat {
+    uint8_t raw[4];
+    float fFloatVal;
+};
+
 MassAirflowSensor::MassAirflowSensor(uint8_t nDeviceAddress) :
     m_nDeviceAddress(nDeviceAddress)
 {
@@ -348,6 +353,7 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readFloatValue(float* pfFloat)
     static uint8_t nMeasRx[5];
     uint8_t nReceived = 0;
     int32_t nVal = 0;
+    union singlePrecFloat fFloatUnion;
 
     Wire.requestFrom(m_nDeviceAddress, (uint8_t)5); // request 5 bytes from slave device
   
@@ -381,9 +387,12 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readFloatValue(float* pfFloat)
     }
 
     // convert to int32_t and prepare as return value
-    nVal = ((int32_t)nMeasRx[0] << 24) | ((int32_t)nMeasRx[1] << 16) | ((int32_t)nMeasRx[2] << 8) | ((int32_t)nMeasRx[0]);
+    fFloatUnion.raw[0] = nMeasRx[0];
+    fFloatUnion.raw[1] = nMeasRx[1];
+    fFloatUnion.raw[2] = nMeasRx[2];
+    fFloatUnion.raw[3] = nMeasRx[3];
 
-    *pfFloat = nVal;
+    *pfFloat = fFloatUnion.fFloatVal;
     return SENSOR_SUCCESS;
 }
 

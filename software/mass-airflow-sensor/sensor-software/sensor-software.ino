@@ -45,7 +45,7 @@ float g_fOffsetVoltage = 0.0f; /* in milliVolts */
 #ifdef DEBUG
     #define debugPrint    Serial.print
     #define debugPrintln  Serial.println
-    //#define DEBUG_INT /* Depending on the timing of the sensor controller requests, it may be useful to turn this off */
+    #define DEBUG_INT /* Depending on the timing of the sensor controller requests, it may be useful to turn this off */
     #define DEBUG_PRINT_STATUS
 #else
     #define debugPrint    
@@ -177,7 +177,8 @@ void loop()
 {
     static int nConversionValue = 0;
     static uint16_t nTxWord = 0;
-    static bool bPrintAll = true; /* has the highest priority, i.e. if set to true, overwrites the following three flags */
+    static bool bPrintNone = true; /* has the highest priority, i.e. if set to true, no continous data will be printed */
+    static bool bPrintAll = true; /* has the second highest priority, i.e. if set to true, overwrites the following three flags */
     static bool bPrintVoltage = false;
     static bool bPrintVoltageOffRem = false;
     static bool bPrintDiffPressure = false;
@@ -188,40 +189,49 @@ void loop()
     
     nConversionValue = analogRead(ANALOG_INPUT_PIN);
 
-    if( SENSOR_MODE_MEASURE == g_eMode || SENSOR_MODE_MEASURE_RAWV == g_eMode || SENSOR_MODE_MEASURE_RAWVO == g_eMode || 
-        SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWFL == g_eMode )
+    if( !bPrintNone )
     {
+        if( SENSOR_MODE_MEASURE == g_eMode || SENSOR_MODE_MEASURE_RAWV == g_eMode || SENSOR_MODE_MEASURE_RAWVO == g_eMode || 
+            SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWFL == g_eMode )
+        {
 #ifdef DEBUG_PRINT_STATUS
-        if( SENSOR_MODE_MEASURE == g_eMode )
-        {
-            debugPrint("[*] "); /* in measuring mode */
-        }
-        else if( SENSOR_MODE_MEASURE_RAWV == g_eMode )
-        {
-            debugPrint("[V] "); /* in measuring mode, output raw voltage values */
-        }
-        else if( SENSOR_MODE_MEASURE_RAWDP == g_eMode)
-        {
-            debugPrint("[P] "); /* in measuring mode, output raw differential pressure values */
-        }
-        else if( SENSOR_MODE_MEASURE_RAWFL == g_eMode)
-        {
-            debugPrint("[F] "); /* in measuring mode, output raw volume flow values */
-        }
+            if( SENSOR_MODE_MEASURE == g_eMode )
+            {
+                debugPrint("[*] "); /* in measuring mode */
+            }
+            else if( SENSOR_MODE_MEASURE_RAWV == g_eMode )
+            {
+                debugPrint("[V] "); /* in measuring mode, output raw voltage values */
+            }
+            else if( SENSOR_MODE_MEASURE_RAWDP == g_eMode)
+            {
+                debugPrint("[P] "); /* in measuring mode, output raw differential pressure values */
+            }
+            else if( SENSOR_MODE_MEASURE_RAWFL == g_eMode)
+            {
+                debugPrint("[F] "); /* in measuring mode, output raw volume flow values */
+            }
 #endif
-#ifdef USE_STATUS_LED
-        digitalWrite(LED_BUILTIN, HIGH);
-#endif
-    }
-    else
-    {
+        }
+        else
+        {
 #ifdef DEBUG_PRINT_STATUS
         debugPrint("[ ] "); /* not in measuring mode */
 #endif
-#ifdef USE_STATUS_LED
-        digitalWrite(LED_BUILTIN, LOW);
-#endif
+        }
     }
+
+#ifdef USE_STATUS_LED
+    if( SENSOR_MODE_MEASURE == g_eMode || SENSOR_MODE_MEASURE_RAWV == g_eMode || SENSOR_MODE_MEASURE_RAWVO == g_eMode || 
+        SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWFL == g_eMode )
+    {
+        digitalWrite(LED_BUILTIN, HIGH);
+    }
+    else
+    {
+        digitalWrite(LED_BUILTIN, LOW);
+    }
+#endif
 
     g_voltage.fFloatVal = countsToMillivolts(nConversionValue);
     g_voltageOffRem.fFloatVal = g_voltage.fFloatVal - g_fOffsetVoltage;
@@ -232,27 +242,30 @@ void loop()
     /* prepare value for serial communication via I2C */
     g_nFlowTxWord = volumeFlowToTxWord( g_flow.fFloatVal );
 
-    // Debug output the sensor's reading (conversion valie)
-    debugPrint("Sensor value: ");
-    if( bPrintAll || bPrintVoltage || SENSOR_MODE_MEASURE_RAWV == g_eMode )
+    if( !bPrintNone )
     {
-        debugPrint( g_voltage.fFloatVal );
-        debugPrint(" mV, ");
+        // Debug output the sensor's reading (conversion valie)
+        debugPrint("Sensor value: ");
+        if( bPrintAll || bPrintVoltage || SENSOR_MODE_MEASURE_RAWV == g_eMode )
+        {
+            debugPrint( g_voltage.fFloatVal );
+            debugPrint(" mV, ");
+        }
+        if( bPrintAll || bPrintVoltageOffRem || SENSOR_MODE_MEASURE_RAWVO == g_eMode )
+        {
+            debugPrint( g_voltageOffRem.fFloatVal );
+            debugPrint(" mV, ");
+        }
+        if( bPrintAll || bPrintDiffPressure || SENSOR_MODE_MEASURE_RAWDP == g_eMode )
+        {
+            debugPrint( g_diffPressure.fFloatVal );
+            debugPrint(" mmWater, ");
+        }
+    
+        /* Always print the flow */
+        debugPrint( g_flow.fFloatVal );
+        debugPrintln(" lpm"); /* liters per minute */
     }
-    if( bPrintAll || bPrintVoltageOffRem || SENSOR_MODE_MEASURE_RAWVO == g_eMode )
-    {
-        debugPrint( g_voltageOffRem.fFloatVal );
-        debugPrint(" mV, ");
-    }
-    if( bPrintAll || bPrintDiffPressure || SENSOR_MODE_MEASURE_RAWDP == g_eMode )
-    {
-        debugPrint( g_diffPressure.fFloatVal );
-        debugPrint(" mmWater, ");
-    }
-
-    /* Always print the flow */
-    debugPrint( g_flow.fFloatVal );
-    debugPrintln(" lpm"); /* liters per minute */
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, LOW);
@@ -388,7 +401,7 @@ void transmitRequestEvent(void)
 #endif
 
 #ifdef DEBUG_INT
-    debugPrintln("[DEBUG] Tx request");
+    //debugPrintln("[DEBUG] Tx request");
 #endif
 
     switch( g_eMode )

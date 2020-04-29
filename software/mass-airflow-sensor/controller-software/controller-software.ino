@@ -22,11 +22,6 @@
     #define debugPrintln  
 #endif
 
-/* if DEBUG_PLOT is defined there's a constant flow of data,
- * otherwise breath cycles will be estimated
- */
-#define DEBUG_PLOT
-
 /* Definition of interval (in milliseconds) to query the sensor via I2C for new measurement.
  * Current setting: query approx. every 20 ms, i.e. at a rate of 50 Hz.
  * Note: This is not exact as there will be plenty of overhead.
@@ -52,7 +47,7 @@ MassAirflowSensor g_sensor[NUM_SENSORS] = { MassAirflowSensor(0x40), MassAirflow
 /* define global variables required for the measurement of volume flow for every sensor */
 bool g_bSendMeasCommand[NUM_SENSORS];
 MassAirflowSensor::eRetVal g_eStatus[NUM_SENSORS];
-float g_fFlow[NUM_SENSORS]; /* Volume flow measurement related variables */
+float g_fValue[NUM_SENSORS]; /* Volume flow (or alternative raw debug) measurement related variables */
 
 #ifdef DEBUG
     uint16_t g_nRaw[NUM_SENSORS];
@@ -81,7 +76,7 @@ void setup()
     {
         g_bSendMeasCommand[nSensorIdx] = true;
         g_eStatus[nSensorIdx] = MassAirflowSensor::SENSOR_FAIL;
-        g_fFlow[nSensorIdx] = 0.0f;
+        g_fValue[nSensorIdx] = 0.0f;
 #ifdef DEBUG
         g_nRaw[nSensorIdx] = 0;
 #endif
@@ -175,22 +170,18 @@ void loop()
     digitalWrite(RT_SUPERVISION_PIN, HIGH);
 #endif
 
+    g_eStatus[0] = g_sensor[0].readMeasurement(&g_fValue[0], &g_nRaw[0], g_bSendMeasCommand[0]); /* request volume flow value */
+    g_eStatus[1] = g_sensor[1].readMeasurement(&g_fValue[1], &g_nRaw[1], g_bSendMeasCommand[1]); /* request volume flow value */
+    //g_eStatus[1] = g_sensor[1].readFloat(&g_fValue[1], MassAirflowSensor::SENSOR_FLOAT_V, g_bSendMeasCommand[1]); /* request raw voltage (for debugging/verification) */
+
+    /* check return codes for every sensor */
     for( uint8_t nSensorIdx = 0; nSensorIdx < NUM_SENSORS; nSensorIdx++ )
     {
-#ifdef DEBUG
-        g_eStatus[nSensorIdx] = g_sensor[nSensorIdx].readMeasurement(&g_fFlow[nSensorIdx], &g_nRaw[nSensorIdx], g_bSendMeasCommand[nSensorIdx]);
-#else
-        g_eStatus[nSensorIdx] = g_sensor[nSensorIdx].readMeasurement(&g_fFlow[nSensorIdx], NULL, g_bSendMeasCommand[nSensorIdx]);
-#endif
-
         if( MassAirflowSensor::SENSOR_SUCCESS == g_eStatus[nSensorIdx] )
         {
-#ifdef DEBUG_PLOT
             debugPrint("[*]");
-#endif
             g_bSendMeasCommand[nSensorIdx] = false; /* do not resend measurement command after first success */
         }
-#ifdef DEBUG_PLOT
         else
         {
             switch( g_eStatus[nSensorIdx] )
@@ -214,70 +205,14 @@ void loop()
             }
             //g_bSendMeasCommand[nSensorIdx] = true; /* do resend measurement command due to error condition */
         }
-#endif
     }
 
-#ifdef DEBUG_PLOT
     debugPrint(" First: ");
-    debugPrint( g_fFlow[0] );
+    debugPrint( g_fValue[0] );
     /* Caution: number of ouputs should match NUM_SENSORS */
     debugPrint(", Second: ");
-    debugPrint( g_fFlow[1] );
+    debugPrint( g_fValue[1] );
     debugPrintln("");
-#else
-    /* Allow estimation of accumulated volume */
-    if( fFlow1 >= 1.0f )
-    {
-        ePhase = BREATH_INSPIRATION;
-    }
-    else
-    {
-        ePhase = BREATH_UNKNOWN;
-    }
-
-    if( ePhaseOld != ePhase )
-    {
-        fPhaseDuration = (float)nPhaseCounter/SAMPLES_PER_SECOND;
-        fAccu1 = fabs(fAccu1) / (60.0f * SAMPLES_PER_SECOND);
-        fAccu2 = fabs(fAccu2) / (60.0f * SAMPLES_PER_SECOND);
-        if( BREATH_INSPIRATION == ePhaseOld )
-        {
-//            Serial.print("Stopped inspiration after ");
-//            Serial.print( fPhaseDuration );
-//            Serial.print(" seconds w/ an accumulated volume of ");
-//            Serial.print( fAccu1 );
-//            Serial.print(" / ");
-//            Serial.print( fAccu2 );
-//            Serial.print(" liters.");
-//            Serial.println("");
-              Serial.print( fAccu1*1000 );
-              Serial.print(";");
-              Serial.print( fAccu2*1000 );
-              Serial.print(";");
-              float fDev = fabs(fAccu1 - fAccu2)/fabs(fAccu1) * 100.0f;
-              Serial.print(fDev);
-              Serial.print("%");
-              Serial.println("");
-        }
-        else
-        {
-//            Serial.print("Stopped pause after ");
-//            Serial.print( fPhaseDuration );
-//            Serial.println("");
-        }
-
-        /* Start a new phase: reset counter and accumulated volume */
-        nPhaseCounter = 0;
-        fAccu1 = 0.0f;
-        fAccu2 = 0.0f;
-    }
-    ePhaseOld = ePhase;
-    nPhaseCounter++;
-
-    /* TODO/FIXME: be aware of floating-point inaccuricy */
-    fAccu1 += fFlow1;
-    fAccu2 += fFlow2;
-#endif
 
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, LOW);
