@@ -15,7 +15,7 @@ public:
     enum eRetVal { SENSOR_SUCCESS = 0, SENSOR_FAIL, SENSOR_CRC_ERROR, SENSOR_CMD_ERROR, SENSOR_RXCNT_ERROR, SENSOR_PARAM_ERROR };
 
     /* typedef floating point debug values of the sensor */
-    enum eFloatValType { SENSOR_FLOAT_V = 0, SENSOR_FLOAT_VO, SENSOR_FLOAT_DP, SENSOR_FLOAT_FL };
+    enum eFloatValType { SENSOR_FLOAT_V = 0, SENSOR_FLOAT_VO, SENSOR_FLOAT_DP, SENSOR_FLOAT_FL, SENSOR_FLOAT_VOFF };
 
     MassAirflowSensor(uint8_t nDeviceAddress);
     uint8_t getDeviceAddress(void);
@@ -36,6 +36,7 @@ private:
     eRetVal sendStartMeasurementRawVoCmd(void);
     eRetVal sendStartMeasurementRawDpCmd(void);
     eRetVal sendStartMeasurementRawFlCmd(void);
+    eRetVal sendStartMeasurementVoffCmd(void);
     crc_t calcCrc(const unsigned char *pData, size_t nDataLen);
 
     uint8_t m_nDeviceAddress;

@@ -33,7 +33,7 @@ The hardware setup is based on Arduino hardware, but in general other hardware w
 Our prototype for a DIY mass air flow meter consists of:
 
 1. **a 3D printed tube:**
-   Currently two designs are available: the "Grid type" and the "Venturi type"); the model files are available within this repository.
+   Currently two designs are available: the "Grid type" and the "Venturi type"); the model files are available within this repository. *Hint: Support for the "Grid type" is unlikely to be continued!* 
 
 2. **an analog differential pressure sensor:**
    The current prototype uses a NXP MPXV5004DP (for 0 to 3.92 kPa). It's an 8-pin chip but uses only power supply (VCC + GND) and provides a measurement via its analog output V_OUT. The 3D models of the tube are designed to fit the sensor in middle of the tube.
@@ -187,7 +187,8 @@ The commands listed in the first three rows are intended to be compatible with S
 | 0x42 0x01    | Start raw measurement, <br />raw voltage offset removed/compensated | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: mV |
 | 0x42 0x02    | Start raw measurement, <br />raw differential pressure       | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: kPa |
 | 0x42 0x03    | Start raw measurement, <br />raw volume flow                 | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: liters per minute |
-| 0x42 0x04    | Start raw measurement, <br />raw frequency                   | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: Hertz |
+| 0x42 0x04    | Start raw measurement, <br />offset voltage                  | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: mV |
+| 0x42 0x05    | Start raw measurement, <br />raw frequency                   | **DRAFT**<br />5 bytes:<br />4 bytes data (single-precision 32-bit floating point according to IEEE754) + 1 byte CRC;<br />unit: Hertz |
 
 
 

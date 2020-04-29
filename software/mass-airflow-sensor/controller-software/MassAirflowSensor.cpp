@@ -290,6 +290,16 @@ MassAirflowSensor::eRetVal MassAirflowSensor::sendStartMeasurementRawFlCmd(void)
     return SENSOR_SUCCESS;
 }
 
+MassAirflowSensor::eRetVal MassAirflowSensor::sendStartMeasurementVoffCmd(void)
+{
+    Wire.beginTransmission(m_nDeviceAddress);
+    Wire.write(0x42);
+    Wire.write(0x04);
+    Wire.endTransmission();
+
+    return SENSOR_SUCCESS;
+}
+
 MassAirflowSensor::eRetVal MassAirflowSensor::readFloat(float* pfFloat, MassAirflowSensor::eFloatValType eType, bool bSendMeasCmd)
 {
     static eRetVal eStatus;
@@ -333,6 +343,12 @@ MassAirflowSensor::eRetVal MassAirflowSensor::readFloat(float* pfFloat, MassAirf
                 break;
             case SENSOR_FLOAT_FL:
                 if( SENSOR_SUCCESS != sendStartMeasurementRawFlCmd() )
+                {
+                    return SENSOR_CMD_ERROR;
+                }
+                break;
+            case SENSOR_FLOAT_VOFF:
+                if( SENSOR_SUCCESS != sendStartMeasurementVoffCmd() )
                 {
                     return SENSOR_CMD_ERROR;
                 }

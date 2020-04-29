@@ -169,10 +169,17 @@ void loop()
 #ifdef RT_SUPERVISION_PIN
     digitalWrite(RT_SUPERVISION_PIN, HIGH);
 #endif
-
+    /* Query data from sensor #0 (usually the reference sensor) */
     g_eStatus[0] = g_sensor[0].readMeasurement(&g_fValue[0], &g_nRaw[0], g_bSendMeasCommand[0]); /* request volume flow value */
+
+    /* Query data from sensor #1 (usually the DIY sensor) */
     g_eStatus[1] = g_sensor[1].readMeasurement(&g_fValue[1], &g_nRaw[1], g_bSendMeasCommand[1]); /* request volume flow value */
-    //g_eStatus[1] = g_sensor[1].readFloat(&g_fValue[1], MassAirflowSensor::SENSOR_FLOAT_V, g_bSendMeasCommand[1]); /* request raw voltage (for debugging/verification) */
+    /* The following raw floating point measurement readouts are only supported by the DIY sensor */
+    //g_eStatus[1] = g_sensor[1].readFloat(&g_fValue[1], MassAirflowSensor::SENSOR_FLOAT_V, g_bSendMeasCommand[1]); /* request raw voltage values (for debugging/verification) */
+    //g_eStatus[1] = g_sensor[1].readFloat(&g_fValue[1], MassAirflowSensor::SENSOR_FLOAT_VOFF, g_bSendMeasCommand[1]); /* request offset voltage value (for debugging/verification) */
+    //g_eStatus[1] = g_sensor[1].readFloat(&g_fValue[1], MassAirflowSensor::SENSOR_FLOAT_VO, g_bSendMeasCommand[1]); /* request offset compensated voltage values (for debugging/verification) */
+    //g_eStatus[1] = g_sensor[1].readFloat(&g_fValue[1], MassAirflowSensor::SENSOR_FLOAT_DP, g_bSendMeasCommand[1]); /* request differential pressure values (for debugging/verification) */
+    //g_eStatus[1] = g_sensor[1].readFloat(&g_fValue[1], MassAirflowSensor::SENSOR_FLOAT_FL, g_bSendMeasCommand[1]); /* request raw volume flow values (for debugging/verification) */
 
     /* check return codes for every sensor */
     for( uint8_t nSensorIdx = 0; nSensorIdx < NUM_SENSORS; nSensorIdx++ )

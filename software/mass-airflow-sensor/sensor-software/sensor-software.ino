@@ -2,13 +2,19 @@
 #include <EEPROM.h>
 #include "crc8.h"
 
+// Please read the README.md file in the github repository for details!
+//
 // Test setup:
-//   Arduino Nano pin asssignment:
-//     I2C SDA:      A4
-//     I2C SCL:      A5
-//     Analog input: A0
-//     Real-time supervision pin: A3
-//     Interrupt supervision pin: A2
+//   Arduino Nano:
+//     pin asssignment:
+//       I2C SDA:      A4
+//       I2C SCL:      A5
+//       Analog input: A0
+//       Real-time supervision pin: A3
+//       Interrupt supervision pin: A2
+//       HINT: Make sure to define VOLTAGE_REF_5V_DEFAULT when using an Arduino Nano as sensor platform!
+//   Arduino Leonardo:
+//       HINT: Make sure to define VOLTAGE_REF_2V56_INTERNAL when using an Arduino Nano as sensor platform!
 
 /* Mapping of the analog input pin, define alias here */
 #define ANALOG_INPUT_PIN      (A0)
@@ -26,18 +32,15 @@
 #define SENSOR_DP_NXP_MPXV5004DP
 //#define SENSOR_DP_NXP_MP3V5004DP
 
-/* Define sensor offset voltage during idle, when there's no differential pressure */
-float g_fOffsetVoltage = 0.0f; /* in milliVolts */
-
 /* Disallow negative differential pressure values, i.e. only flow in one direction */
 #define DISALLOW_NEGATIVE_VALUES
 
 /* Choose _one_ of the following voltage reference settings */
-//#define VOLTAGE_REF_5V_DEFAULT
+#define VOLTAGE_REF_5V_DEFAULT
 //#define VOLTAGE_REF_1V0_INTERNAL /* (currently not supported!) ATmega168/ATmega328P based boards, e.g. Arduno Uno */
-#define VOLTAGE_REF_2V56_INTERNAL /* ATmega32U4 based boards, e.g. Arduino Leonardo */
+//#define VOLTAGE_REF_2V56_INTERNAL /* ATmega32U4 based boards, e.g. Arduino Leonardo */
 
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
 #define debugPrint    Serial.print
 #define debugPrintln  Serial.println
@@ -72,7 +75,8 @@ enum eSensorMode {
   SENSOR_MODE_MEASURE_RAWV,   /*!< Measuring mode (delivering raw voltage values) */
   SENSOR_MODE_MEASURE_RAWVO,  /*!< Measuring mode (delivering raw voltage values, offset removed) */
   SENSOR_MODE_MEASURE_RAWDP,  /*!< Measuring mode (delivering raw differential pressure values) */
-  SENSOR_MODE_MEASURE_RAWFL   /*!< Measuring mode (delivering raw volume flow values) */
+  SENSOR_MODE_MEASURE_RAWFL,  /*!< Measuring mode (delivering raw volume flow values) */
+  SENSOR_MODE_MEASURE_VOFF    /*!< Measuring mode (delivering offset voltage value) */
 };
 
 /* define the address of the sensor on the I2C bus;
@@ -100,6 +104,8 @@ volatile union singlePrecFloat g_voltage;
 volatile union singlePrecFloat g_voltageOffRem;
 volatile union singlePrecFloat g_diffPressure;
 volatile union singlePrecFloat g_flow;
+volatile union singlePrecFloat g_offsetVoltage; /* Define sensor offset voltage (in mV) during idle, when there's no differential pressure */
+
 volatile uint16_t g_nFlowTxWord = 0;
 
 void eepromWriteOffsetVoltage(float fOffsetVoltage);
@@ -146,7 +152,7 @@ void setup()
      another way would be to calculate a mean "idle" offset voltage at startup
   */
   //eepromWriteOffsetVoltage( 54.0f ); /* program it once, then comment this line out */
-  g_fOffsetVoltage = eepromReadOffsetVoltage();
+  g_offsetVoltage.fFloatVal = eepromReadOffsetVoltage();
 
   g_nFlowTxWord = 0;
   g_voltage.fFloatVal = 0.0f;
@@ -167,9 +173,10 @@ void loop()
 {
   static int nConversionValue = 0;
   static uint16_t nTxWord = 0;
-  static bool bPrintNone = true; /* has the highest priority, i.e. if set to true, no continous data will be printed */
-  static bool bPrintAll = true; /* has the second highest priority, i.e. if set to true, overwrites the following three flags */
+  static bool bPrintNone = false; /* has the highest priority, i.e. if set to true, no continous data will be printed */
+  static bool bPrintAll = false; /* has the second highest priority, i.e. if set to true, overwrites the following three flags */
   static bool bPrintVoltage = false;
+  static bool bPrintOffsetVoltage = false;
   static bool bPrintVoltageOffRem = false;
   static bool bPrintDiffPressure = false;
 
@@ -182,7 +189,7 @@ void loop()
   if ( !bPrintNone )
   {
     if ( SENSOR_MODE_MEASURE == g_eMode || SENSOR_MODE_MEASURE_RAWV == g_eMode || SENSOR_MODE_MEASURE_RAWVO == g_eMode ||
-         SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWFL == g_eMode )
+         SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWFL == g_eMode || SENSOR_MODE_MEASURE_VOFF == g_eMode )
     {
 #ifdef DEBUG_PRINT_STATUS
       if ( SENSOR_MODE_MEASURE == g_eMode )
@@ -201,6 +208,10 @@ void loop()
       {
         debugPrint("[F] "); /* in measuring mode, output raw volume flow values */
       }
+      else if ( SENSOR_MODE_MEASURE_VOFF == g_eMode)
+      {
+        debugPrint("[O] "); /* in measuring mode, output offset voltage value */
+      }
 #endif
     }
     else
@@ -213,7 +224,7 @@ void loop()
 
 #ifdef USE_STATUS_LED
   if ( SENSOR_MODE_MEASURE == g_eMode || SENSOR_MODE_MEASURE_RAWV == g_eMode || SENSOR_MODE_MEASURE_RAWVO == g_eMode ||
-       SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWFL == g_eMode )
+       SENSOR_MODE_MEASURE_RAWDP == g_eMode || SENSOR_MODE_MEASURE_RAWFL == g_eMode || SENSOR_MODE_MEASURE_VOFF == g_eMode )
   {
     digitalWrite(LED_BUILTIN, HIGH);
   }
@@ -224,7 +235,7 @@ void loop()
 #endif
 
   g_voltage.fFloatVal = countsToMillivolts(nConversionValue);
-  g_voltageOffRem.fFloatVal = g_voltage.fFloatVal - g_fOffsetVoltage;
+  g_voltageOffRem.fFloatVal = g_voltage.fFloatVal - g_offsetVoltage.fFloatVal;
 
   g_diffPressure.fFloatVal = millivoltsToPressure( g_voltageOffRem.fFloatVal );
   g_flow.fFloatVal = pressureToVolumeFlow( g_diffPressure.fFloatVal );
@@ -239,6 +250,11 @@ void loop()
     if ( bPrintAll || bPrintVoltage || SENSOR_MODE_MEASURE_RAWV == g_eMode )
     {
       debugPrint( g_voltage.fFloatVal );
+      debugPrint(" mV, ");
+    }
+    if ( bPrintAll || bPrintOffsetVoltage || SENSOR_MODE_MEASURE_VOFF == g_eMode )
+    {
+      debugPrint( g_offsetVoltage.fFloatVal );
       debugPrint(" mV, ");
     }
     if ( bPrintAll || bPrintVoltageOffRem || SENSOR_MODE_MEASURE_RAWVO == g_eMode )
@@ -363,6 +379,11 @@ void receiveEvent(int nBytes)
     debugPrintln("Rx'ed 'start measurement (raw volume flow)' command");
     g_eMode = SENSOR_MODE_MEASURE_RAWFL;
   }
+  else if ( 0x42 == cCmdBytes[0] && 0x04 == cCmdBytes[1] )
+  {
+    debugPrintln("Rx'ed 'start measurement (offset voltage)' command");
+    g_eMode = SENSOR_MODE_MEASURE_VOFF;
+  }
   else if ( 0x31 == cCmdBytes[0] && 0xAE == cCmdBytes[1] )
   {
     debugPrintln("Rx'ed 'read serial number' command");
@@ -451,6 +472,17 @@ void transmitRequestEvent(void)
       Wire.write((char)g_flow.raw[2]);
       Wire.write((char)g_flow.raw[3]);
       Wire.write((char)calcCrc(&g_flow.raw[0], 4) );
+      break;
+    case SENSOR_MODE_MEASURE_VOFF:
+#ifdef DEBUG_INT
+      debugPrintln("[DEBUG] Tx offset voltage measurement");
+#endif
+      // TODO/FIXME: the following lines should be atomic or double-buffered to prevent corruption
+      Wire.write((char)g_offsetVoltage.raw[0]);
+      Wire.write((char)g_offsetVoltage.raw[1]);
+      Wire.write((char)g_offsetVoltage.raw[2]);
+      Wire.write((char)g_offsetVoltage.raw[3]);
+      Wire.write((char)calcCrc(&g_offsetVoltage.raw[0], 4) );
       break;
     case SENSOR_MODE_SERIALNO:
       char sSerNo[4];
