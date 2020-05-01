@@ -55,6 +55,19 @@ Our prototype for a DIY mass air flow meter consists of:
 
 ## DIY mass air flow meter - sensor code
 
+### Design considerations
+
+This project has so far been a prototype by some volunteers. It may be lacking some engineering and scientific background. To rework this prototype the following steps seem to make sense (need and should be discussed). A good analogon is an electric circuit where pressure is related to voltage and volume flow is related to volume flow.
+
+1. Define the **peak volume flow** of your application. The peak volume flow may be derived from the maximum tidal volume and duration of the inspiration/expiration phases. Casually spoken: How fast is air delivered to the patient? Example: 200 liters per minute.
+2. Define the **maximum pressure drop** allowed to be produced by the sensor at the peak volume flow, i.e. the resistance should not be too high as the pressure delivered to the patient is also reduced and might need to be compensated on the pressure source side. Example: 600 Pascal.
+3.  **Select an appropriate differential pressure sensor** to cover the maximum pressure drop in a reasonable measurement range.
+   1. Which kind of transducer is used - what is the output? Does it provide a digital interface (e.g. I2C or SPI) or an analogue voltage? How is the resolution?
+   2. In case of an analogue voltage: What is the reference voltage, i.e. the measurement range of your ADC? How is the resolution? Is it sufficient to measure the voltage directly or is an operational amplifier required - or a voltage divider? How should the analogue low pass filter be designed?
+4. **Calculate your geometry using the Venturi tube design**: the outer diameter might already be given by the tube sizes to adapt the meter for the rest of the system. The inner diameter is then determined: the peak volume flow shall lead to the maximum pressure drop allowed.
+
+Disclaimer: The prototype is not based on these design steps!
+
 ### Overview
 
 The sensor code is used to:
