@@ -8,6 +8,16 @@ The mass air flow sensor has started as part of the "DIY-Beatmungsgerät" projec
 
 The aim of this repository to provide data to use ready-made mass air flow sensors as well as build and verify DIY mass air flow sensors. The current DIY approach is based on analogue differential pressure sensors.
 
+*The plans, documents and other materials ("Material") contained in this repository are simple prototypes. The Material is not intended to be used in or as a medical device. The Material has not been tested and has not been approved for use in humans or animals by any regulatory authority of any country.*
+
+*By using the Material, you are agreeing to the following disclaimer.*
+
+*The Material is offered as-is and as-available, and makes no representations or warranties of any kind whatever concerning the Material, whether express, implied, statutory, or other. This includes, without limitation, warranties of merchantability, fitness for a particular purpose, non-infringement, absence of latent or other defects, accuracy, or the presence or absence of errors, whether or not known or discoverable.*
+
+*To the extent possible, in no event will the authors be liable to you on any legal theory (including, without limitation, negligence) or otherwise for any direct, special, indirect, incidental, consequential, punitive, exemplary, or other losses, costs, expenses, or damages arising out of the Material or use of the Material, even if the authors have been advised of the possibility of such losses, costs, expenses, or damages.*
+
+*The disclaimer of warranties and limitation of liability provided above shall be interpreted in a manner that, to the extent possible, most closely approximates an absolute disclaimer and waiver of all liability.*
+
 ## Hardware setup
 
 The hardware setup consists of replaceable components:
